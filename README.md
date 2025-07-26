@@ -1,80 +1,117 @@
-Krypton Core integration/staging tree
-=====================================
+# Krypton (KYP)
 
-[![Build Status](https://travis-ci.org/krypton-project/krypton.svg?branch=master)](https://travis-ci.org/krypton-project/krypton)
+**Krypton** est une crypto-monnaie open source basée sur Litecoin, pensée pour être rapide, légère, et accessible à tous. Le projet a été lancé le 24 juillet 2025 comme une alternative simple, transparente et sans préminage. Son objectif : offrir une blockchain communautaire, propre, et stable.
 
-https://krypton.org
+---
 
-What is Krypton?
-----------------
+## ⚙️ Caractéristiques Techniques
 
-Krypton is an experimental digital currency that enables instant payments to
-anyone, anywhere in the world. Krypton uses peer-to-peer technology to operate
-with no central authority: managing transactions and issuing money are carried
-out collectively by the network. Krypton Core is the name of open source
-software which enables the use of this currency.
+- **Nom** : Krypton  
+- **Symbole** : KYP  
+- **Algorithme** : Scrypt (comme Litecoin)  
+- **Temps de bloc** : 1 minute  
+- **Récompense initiale** : 100 KYP / bloc  
+- **Réduction annuelle de récompense** : 10 %  
+- **Max supply** : 15 000 000 KYP  
+- **Pas de préminage** : ✅  
+- **Genesis Block personnalisé** : ✅ (mainnet, testnet, regtest)
 
-For more information, as well as an immediately useable, binary version of
-the Krypton Core software, see [https://krypton.org](https://krypton.org).
+---
 
-License
--------
+## 📦 Compilation
 
-Krypton Core is released under the terms of the MIT license. See [COPYING](COPYING) for more
-information or see https://opensource.org/licenses/MIT.
+### Prérequis (Debian 12)
 
-Development Process
--------------------
+```bash
+sudo apt update && sudo apt install -y \
+  build-essential libtool autotools-dev automake pkg-config \
+  libssl-dev libevent-dev bsdmainutils libboost-all-dev \
+  libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler \
+  qttools5-dev qttools5-dev-tools libqrencode-dev git curl
 
-The `master` branch is regularly built and tested, but is not guaranteed to be
-completely stable. [Tags](https://github.com/krypton-project/krypton/tags) are created
-regularly to indicate new official, stable release versions of Krypton Core.
+Berkeley DB 4.8
 
-The contribution workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md)
-and useful hints for developers can be found in [doc/developer-notes.md](doc/developer-notes.md).
+Krypton utilise Berkeley DB 4.8 pour la compatibilité avec le wallet.
 
-The developer [mailing list](https://groups.google.com/forum/#!forum/krypton-dev)
-should be used to discuss complicated or controversial changes before working
-on a patch set.
+# Cloner et compiler BDB 4.8
+wget http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz
+tar -xzvf db-4.8.30.NC.tar.gz
+cd db-4.8.30.NC/build_unix
+../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local
+make -j$(nproc)
+sudo make install
 
-Developer IRC can be found on Freenode at #krypton-dev.
+Ajouter BDB à votre environnement :
 
-Testing
--------
+export BDB_PREFIX="/usr/local"
+export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
 
-Testing and code review is the bottleneck for development; we get more pull
-requests than we can review and test on short notice. Please be patient and help out by testing
-other people's pull requests, and remember this is a security-critical project where any mistake might cost people
-lots of money.
 
-### Automated Testing
+---
 
-Developers are strongly encouraged to write [unit tests](src/test/README.md) for new code, and to
-submit new unit tests for old code. Unit tests can be compiled and run
-(assuming they weren't disabled in configure) with: `make check`. Further details on running
-and extending unit tests can be found in [/src/test/README.md](/src/test/README.md).
+🔧 Compilation de Krypton
 
-There are also [regression and integration tests](/test), written
-in Python, that are run automatically on the build server.
-These tests can be run (if the [test dependencies](/test) are installed) with: `test/functional/test_runner.py`
+git clone https://github.com/Kryptonproject-crypto/Krypton.git
+cd Krypton
+./autogen.sh
+./configure LDFLAGS="-L/usr/local/lib" CPPFLAGS="-I/usr/local/include"
+make -j$(nproc)
 
-The Travis CI system makes sure that every pull request is built for Windows, Linux, and macOS, and that unit/sanity tests are run automatically.
 
-### Manual Quality Assurance (QA) Testing
+---
 
-Changes should be tested by somebody other than the developer who wrote the
-code. This is especially important for large or high-risk changes. It is useful
-to add a test plan to the pull request description if testing the changes is
-not straightforward.
+🚀 Lancement
 
-Translations
-------------
+Démarrer le daemon :
 
-We only accept translation fixes that are submitted through [Bitcoin Core's Transifex page](https://www.transifex.com/projects/p/bitcoin/).
-Translations are converted to Krypton periodically.
+./src/kryptond -daemon
 
-Translations are periodically pulled from Transifex and merged into the git repository. See the
-[translation process](doc/translation_process.md) for details on how this works.
+Vérifier la synchronisation :
 
-**Important**: We do not accept translation changes as GitHub pull requests because the next
-pull from Transifex would automatically overwrite them again.
+./src/krypton-cli getblockchaininfo
+
+
+---
+
+🌐 Réseau
+
+Port P2P : 9333
+
+Port RPC : 9332
+
+Préfixe d’adresse : KY... (à personnaliser)
+
+
+
+---
+
+🙌 Rejoindre la Communauté
+
+Krypton est un projet ouvert à tous. Vous êtes les bienvenus pour :
+
+proposer des idées 💡
+
+contribuer au code 👨‍💻
+
+créer un wallet 📱
+
+lancer des nodes 🌍
+
+
+Contact / Discord / Telegram à venir…
+
+
+---
+
+💬 Licence
+
+Projet open-source publié sous la licence MIT.
+
+
+---
+
+❤️ Merci
+
+Merci à toutes les personnes qui soutiennent Krypton et qui croient en une blockchain simple, propre, et communautaire.
+
+---
