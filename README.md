@@ -115,3 +115,5 @@ Projet open-source publié sous la licence MIT.
 Merci à toutes les personnes qui soutiennent Krypton et qui croient en une blockchain simple, propre, et communautaire.
 
 ---
+
+Pour toute information complémentaire rendez-vous sur notre discord : https://discord.gg/raEe6Ddf
