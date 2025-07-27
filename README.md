@@ -26,7 +26,7 @@ Max supply : 16 000 000 KYP
 
 ## 📦 Compilation
 
-### Prérequis (Debian 12)
+### Prérequis (Linux)
 
 ```bash
 sudo apt update && sudo apt install -y \
@@ -104,7 +104,7 @@ créer un wallet 📱
 lancer des nodes 🌍
 
 
-Contact / Discord / Telegram à venir…
+Contact / Discord / 
 
 
 ---
