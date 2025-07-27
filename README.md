@@ -4,17 +4,23 @@
 
 ---
 
-## ⚙️ Caractéristiques Techniques
+⚙️ Caractéristiques Techniques
 
-- **Nom** : Krypton  
-- **Symbole** : KYP  
-- **Algorithme** : Scrypt (comme Litecoin)  
-- **Temps de bloc** : 1 minute  
-- **Récompense initiale** : 100 KYP / bloc  
-- **Réduction annuelle de récompense** : 10 %  
-- **Max supply** : 15 000 000 KYP  
-- **Pas de préminage** : ✅  
-- **Genesis Block personnalisé** : ✅ (mainnet, testnet, regtest)
+Nom : Krypton
+
+Symbole : KYP
+
+Algorithme : Scrypt (comme Litecoin)
+
+Temps de bloc : 120 secondes (2 minutes)
+
+Récompense initiale : 30.4414 KYP / bloc
+
+Réduction de récompense : 50 % tous les 262 800 blocs (~1 an)
+
+Durée totale de distribution : ~32 ans
+
+Max supply : 16 000 000 KYP
 
 ---
 
