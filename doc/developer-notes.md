@@ -402,7 +402,7 @@ Threads
 
 - DumpAddresses : Dumps IP addresses of nodes to peers.dat.
 
-- ThreadRPCServer : Remote procedure call handler, listens on port 9332 for connections and services them.
+- ThreadRPCServer : Remote procedure call handler, listens on port 8370 for connections and services them.
 
 - Shutdown : Does an orderly shutdown of everything.
 

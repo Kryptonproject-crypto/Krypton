@@ -77,7 +77,7 @@ Vérifier la synchronisation :
 
 Port P2P : 9333
 
-Port RPC : 9332
+Port RPC : 8370
 
 Préfixe d’adresse : KY... (à personnaliser)
 
