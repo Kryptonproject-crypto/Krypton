@@ -10,7 +10,7 @@ Nom : Krypton
 
 Symbole : KYP
 
-Algorithme : Scrypt (comme Litecoin)
+Algorithme : Scrypt 
 
 Temps de bloc : 120 secondes (2 minutes)
 
