@@ -12,15 +12,15 @@ Symbole : KYP
 
 Algorithme : Scrypt 
 
-Temps de bloc : 120 secondes (2 minutes)
+Temps de bloc : 60 secondes (1 minute)
 
-Récompense initiale : 30.4414 KYP / bloc
+Récompense initiale : 14.26940639 KYP / bloc
 
-Réduction de récompense : 50 % tous les 262 800 blocs (~1 an)
+Réduction de récompense : 50 % tous les 525 600 blocs (~1 an)
 
-Durée totale de distribution : ~32 ans
+Durée totale de distribution : ~31 ans
 
-Max supply : 16 000 000 KYP
+Max supply : 15 000 000 KYP
 
 ---
 
