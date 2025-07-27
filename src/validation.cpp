@@ -1151,7 +1151,7 @@ bool ReadRawBlockFromDisk(std::vector<uint8_t>& block, const CBlockIndex* pindex
     return ReadRawBlockFromDisk(block, block_pos, message_start);
 }
 
-/******
+
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
     int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
@@ -1159,29 +1159,9 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     if (halvings >= 64)
         return 0;
 
-    CAmount nSubsidy = 50 * COIN;
-    // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
+    CAmount nSubsidy = 14.26940639 * COIN;
+    // Subsidy is cut in half every 525,600 blocks which will occur approximately every year.
     nSubsidy >>= halvings;
-    return nSubsidy;
-}
-********/
-
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
-{
-    // Each reduction occurs every 210,240 blocks (approx. 1 year with 150s block time)
-    int reductions = nHeight / consensusParams.nSubsidyHalvingInterval;
-
-    // Initial reward: 7.13470320 KYP = 713470320 satoshis
-    CAmount nSubsidy = 713470320;
-
-    // Apply 10% reduction per interval using pow() function (rounded to nearest satoshi)
-    double multiplier = pow(0.9, reductions);
-    nSubsidy = static_cast<CAmount>(nSubsidy * multiplier);
-
-    // Stop block reward if it's less than 1 satoshi
-    if (nSubsidy < 1)
-        return 0;
-
     return nSubsidy;
 }
 

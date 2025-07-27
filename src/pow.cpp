@@ -24,7 +24,9 @@ if (lastTarget.SetCompact(pindexLast->nBits) > UintToArith256(params.powLimit))
     return nProofOfWorkLimit;
 }
 
-
+  if (static_cast<uint32_t>(pindexLast->nHeight) >= 1) {
+      return LwmaCalculateNextWorkRequired(pindexLast, params);
+  } else {
 
     // Only change once per difficulty adjustment interval
     if ((pindexLast->nHeight+1) % params.DifficultyAdjustmentInterval() != 0)
@@ -48,16 +50,6 @@ if (lastTarget.SetCompact(pindexLast->nBits) > UintToArith256(params.powLimit))
         }
         return pindexLast->nBits;
     }
-//st
-	if (pindexLast->nHeight == 0) // If genesis block, return PoW limit
-	{
-	    return nProofOfWorkLimit;
-	}
-	else
-	{
-	    return pindexLast->nBits;
-	}
-//en
 
     // Go back by what we want to be 14 days worth of blocks
     // RadioCoin: This fixes an issue where a 51% attack can change difficulty at will.
@@ -74,6 +66,46 @@ if (lastTarget.SetCompact(pindexLast->nBits) > UintToArith256(params.powLimit))
     assert(pindexFirst);
 
     return CalculateNextWorkRequired(pindexLast, pindexFirst->GetBlockTime(), params);
+  }
+}
+
+unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params)
+{
+    const int64_t T = params.nPowTargetSpacing;
+    const int64_t N = 120;
+    const int64_t k = N * (N + 1) * T / 2;
+    const int64_t height = pindexLast->nHeight;
+    const arith_uint256 powLimit = UintToArith256(params.powLimit);
+
+    if (height < N) { return powLimit.GetCompact(); }
+
+    arith_uint256 sumTarget, nextTarget;
+    int64_t thisTimestamp, previousTimestamp;
+    int64_t t = 0, j = 0;
+
+    const CBlockIndex* blockPreviousTimestamp = pindexLast->GetAncestor(height - N);
+    previousTimestamp = blockPreviousTimestamp->GetBlockTime();
+
+    // Loop through N most recent blocks. 
+    for (int64_t i = height - N + 1; i <= height; i++) {
+        const CBlockIndex* block = pindexLast->GetAncestor(i);
+        thisTimestamp = (block->GetBlockTime() > previousTimestamp) ? 
+                            block->GetBlockTime() : previousTimestamp + 1;
+
+        int64_t solvetime = std::min(6 * T, thisTimestamp - previousTimestamp);
+        previousTimestamp = thisTimestamp;
+
+        j++;
+        t += solvetime * j; // Weighted solvetime sum.
+        arith_uint256 target;
+        target.SetCompact(block->nBits);
+        sumTarget += target / (k * N);
+    }
+    nextTarget = t * sumTarget;
+
+    if (nextTarget > powLimit) { nextTarget = powLimit; }
+
+    return nextTarget.GetCompact();
 }
 
 unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params& params)
