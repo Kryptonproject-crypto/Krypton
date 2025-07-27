@@ -43,7 +43,7 @@ Build Krypton Core
 
 1. Clone the Krypton Core source code:
 
-        git clone https://github.com/krypton-project/krypton
+        git clone https://github.com/Kryptonproject-crypto/Krypton
         cd krypton
 
 2.  Build Krypton Core:

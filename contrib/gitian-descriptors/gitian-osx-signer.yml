@@ -7,7 +7,7 @@ architectures:
 packages:
 - "faketime"
 remotes:
-- "url": "https://github.com/krypton-project/krypton-detached-sigs.git"
+- "url": "https://github.com/Kryptonproject-crypto/Krypton-detached-sigs.git"
   "dir": "signature"
 files:
 - "krypton-osx-unsigned.tar.gz"

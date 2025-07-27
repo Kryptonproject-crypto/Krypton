@@ -22,7 +22,7 @@ libtool
 pkg-config
 python37
 
-git clone https://github.com/krypton-project/krypton.git
+git clone https://github.com/Kryptonproject-crypto/Krypton.git
 ```
 
 See [dependencies.md](dependencies.md) for a complete overview.

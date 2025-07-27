@@ -5,7 +5,7 @@ Before every release candidate:
 
 * Update translations (ping wumpus on IRC) see [translation_process.md](https://github.com/bitcoin/bitcoin/blob/master/doc/translation_process.md#synchronising-translations).
 
-* Update manpages, see [gen-manpages.sh](https://github.com/krypton-project/krypton/blob/master/contrib/devtools/README.md#gen-manpagessh).
+* Update manpages, see [gen-manpages.sh](https://github.com/Kryptonproject-crypto/Krypton/blob/master/contrib/devtools/README.md#gen-manpagessh).
 * Update release candidate version in `configure.ac` (`CLIENT_VERSION_RC`)
 
 Before every minor and major release:
@@ -36,9 +36,9 @@ Check out the source code in the following directory hierarchy.
 
     cd /path/to/your/toplevel/build
     git clone https://github.com/krypton-project/gitian.sigs.ltc.git
-    git clone https://github.com/krypton-project/krypton-detached-sigs.git
+    git clone https://github.com/Kryptonproject-crypto/Krypton-detached-sigs.git
     git clone https://github.com/devrandom/gitian-builder.git
-    git clone https://github.com/krypton-project/krypton.git
+    git clone https://github.com/Kryptonproject-crypto/Krypton.git
 
 ### Krypton maintainers/release engineers, suggestion for writing release notes
 
@@ -201,7 +201,7 @@ Codesigner only: Commit the detached codesign payloads:
 Non-codesigners: wait for Windows/macOS detached signatures:
 
 - Once the Windows/macOS builds each have 3 matching signatures, they will be signed with their respective release keys.
-- Detached signatures will then be committed to the [krypton-detached-sigs](https://github.com/krypton-project/krypton-detached-sigs) repository, which can be combined with the unsigned apps to create signed binaries.
+- Detached signatures will then be committed to the [krypton-detached-sigs](https://github.com/Kryptonproject-crypto/Krypton-detached-sigs) repository, which can be combined with the unsigned apps to create signed binaries.
 
 Create (and optionally verify) the signed macOS binary:
 
@@ -286,6 +286,6 @@ Note: check that SHA256SUMS itself doesn't end up in SHA256SUMS, which is a spur
 
   - Archive release notes for the new version to `doc/release-notes/` (branch `master` and branch of the release)
 
-  - Create a [new GitHub release](https://github.com/krypton-project/krypton/releases/new) with a link to the archived release notes.
+  - Create a [new GitHub release](https://github.com/Kryptonproject-crypto/Krypton/releases/new) with a link to the archived release notes.
 
   - Celebrate

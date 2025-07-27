@@ -36,7 +36,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     // personal mod for bits 545259519
     // orig 486604799
     // 504365040
-    // https://github.com/krypton-project/krypton/issues/388
+    // https://github.com/Kryptonproject-crypto/Krypton/issues/388
     txNew.vin[0].scriptSig = CScript() << 504365040 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
    
     
