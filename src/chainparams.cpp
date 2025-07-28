@@ -1,19 +1,10 @@
-
-// check https://github.com/c4pt000/radioCOIN/src/chainparams.cpp for some major differences once genesis hash and genesis merkle roots are built and other blocks are minted
 // Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2018 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-#include <stdio.h>
-#include <inttypes.h>
-
-#include <cinttypes>
-
-
-
 
 #include <chainparams.h>
-#include <arith_uint256.h>
+
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
 #include <tinyformat.h>
@@ -69,7 +60,6 @@ static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits
 /**
  * Main network
  */
-
 class CMainParams : public CChainParams {
 public:
     CMainParams() {
@@ -77,7 +67,7 @@ public:
         consensus.nSubsidyHalvingInterval = 525600; // ~1year
         consensus.BIP16Height = 0;
         consensus.BIP34Height = 0;
-        consensus.BIP34Hash = uint256S("0x193b2e6b085e1849d425b35399b0ee5fcf8d867a5e2d9a40bf231cfeae710066");
+        consensus.BIP34Hash = uint256S("0x1dac3550cb926b7a44df033bf6bcac3660da63612376816f92c2de2c36d9edf6");
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
         consensus.powLimit = uint256S("00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -85,8 +75,8 @@ public:
         consensus.nPowTargetSpacing = 1 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
-        consensus.nRuleChangeActivationThreshold = 6048; // 75% of 8064
-        consensus.nMinerConfirmationWindow = 8064; // nPowTargetTimespan / nPowTargetSpacing * 4
+        consensus.nRuleChangeActivationThreshold = 1800;
+        consensus.nMinerConfirmationWindow = 2400;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999;
@@ -102,10 +92,10 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_SEGWIT].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
 
         // The best chain should have at least this much work.
-        consensus.nMinimumChainWork = uint256S("0x0000000000000000000000000000000000000000000000000000000000100010");
+        consensus.nMinimumChainWork = uint256S("0x00000000000000000000000000000000000000000000000000000000002282c0");
 
         // By default assume that the signatures in ancestors of this block are valid.
-        consensus.defaultAssumeValid = uint256S("0x193b2e6b085e1849d425b35399b0ee5fcf8d867a5e2d9a40bf231cfeae710066");
+        consensus.defaultAssumeValid = uint256S("0xc1a4a8fa2831d343a35f93112cf28bde7dc90047619ddf5dfad01c908811cadd");
 
         pchMessageStart[0] = 0xb6;
         pchMessageStart[1] = 0xf4;
@@ -116,10 +106,10 @@ public:
         m_assumed_blockchain_size = 0;
         m_assumed_chain_state_size = 0;
 
-        genesis = CreateGenesisBlock(1753538753, 713, 0x1f0fffff, 1, 50 * COIN);
+        genesis = CreateGenesisBlock(1753538753, 78693, 0x1e0ffff0, 1, 50 * COIN);
         consensus.hashGenesisBlock = genesis.GetHash();
-	assert(consensus.hashGenesisBlock == uint256S("0x193b2e6b085e1849d425b35399b0ee5fcf8d867a5e2d9a40bf231cfeae710066"));
-	assert(genesis.hashMerkleRoot == uint256S("0x708665c56d1074161af8b7ec6144d7f99f1671afe09a1abdaed5f27892c1f44c"));
+        assert(consensus.hashGenesisBlock == uint256S("0x1dac3550cb926b7a44df033bf6bcac3660da63612376816f92c2de2c36d9edf6"));
+        assert(genesis.hashMerkleRoot == uint256S("0x708665c56d1074161af8b7ec6144d7f99f1671afe09a1abdaed5f27892c1f44c"));
 
         //vSeeds.emplace_back("xxxxxxxxxxxxx");
 
@@ -140,15 +130,18 @@ public:
 
         checkpointData = {
             {
-                {  0, uint256S("0x193b2e6b085e1849d425b35399b0ee5fcf8d867a5e2d9a40bf231cfeae710066")},
+                {  0, uint256S("0x1dac3550cb926b7a44df033bf6bcac3660da63612376816f92c2de2c36d9edf6")},
+                {  1, uint256S("0xa3a415511d787f83dd60cdca0459218a2115bc0e1e5b09d564ce8edc15855bbd")},
+                {  129, uint256S("0xc1a4a8fa2831d343a35f93112cf28bde7dc90047619ddf5dfad01c908811cadd")},
+
             }
         };
 
        chainTxData = ChainTxData{
-    // Data from rpc: getchaintxstats 0
-    /* nTime    */ 1753538753,
-    /* nTxCount */ 0,
-    /* dTxRate  */ 0,
+    // Data from rpc: getchaintxstats 129 c1a4a8fa2831d343a35f93112cf28bde7dc90047619ddf5dfad01c908811cadd
+    /* nTime    */ 1753634141,
+    /* nTxCount */ 130,
+    /* dTxRate  */ 0.9219858156028369,
 };
 
         m_fallback_fee_enabled = true;
@@ -179,6 +172,7 @@ public:
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
 
+        // Deployment of BIP68, BIP112, and BIP113.
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].bit = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = Consensus::BIP9Deployment::ALWAYS_ACTIVE;
         consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
@@ -232,16 +226,13 @@ public:
                 {0, uint256S("0xb6f427d550b091f9be1d1b6b288f10cd529462b5f368c43dbb15f0f17a075aa0")},
             }
         };
-     
-      
-        
-       chainTxData = ChainTxData{
-    // Data from rpc: getchaintxstats 0
-    /* nTime    */ 1753538754,
-    /* nTxCount */ 0,
-    /* dTxRate  */ 0
-};
 
+        chainTxData = ChainTxData{
+            // Data from rpc: getchaintxstats 0
+            /* nTime    */ 1753538754,
+            /* nTxCount */ 0,
+            /* dTxRate  */ 0.00
+        };
 
         /* enable fallback fee on testnet */
         m_fallback_fee_enabled = true;
@@ -251,11 +242,6 @@ public:
 /**
  * Regression test
  */
-//  consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
-      //  consensus.BIP34Hash = uint256();
-      //  consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
-      //  consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
-        
 class CRegTestParams : public CChainParams {
 public:
     explicit CRegTestParams(const ArgsManager& args) {

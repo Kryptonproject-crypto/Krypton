@@ -46,7 +46,7 @@ versions of Tor see [Section 3](#3-automatically-listen-on-tor).*
 
 	HiddenServiceDir /var/lib/tor/krypton-service/
 	HiddenServicePort 8369 127.0.0.1:8369
-	HiddenServicePort 19335 127.0.0.1:19335
+	HiddenServicePort 18369 127.0.0.1:18369
 
 The directory can be different of course, but (both) port numbers should be equal to
 your kryptond's P2P listen port (8369 by default).
