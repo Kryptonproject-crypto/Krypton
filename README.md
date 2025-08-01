@@ -20,7 +20,7 @@ Technical Specifications
 
 Build Instructions
 
-Requirements (Ubuntu/Debian)
+Requirements (Ubuntu 22 /Debian)
 
 sudo apt update && sudo apt install -y \
   build-essential libtool autotools-dev automake pkg-config \
