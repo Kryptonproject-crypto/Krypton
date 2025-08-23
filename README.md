@@ -64,7 +64,7 @@ Check synchronization:
 
 Network
 
-- P2P Port: 9333  
+- P2P Port: 8369
 - RPC Port: 8370
 
 Community
