@@ -5,7 +5,7 @@ Setup
 ---------------------
 Krypton Core is the original Krypton client and it builds the backbone of the network. It downloads and, by default, stores the entire history of Krypton transactions, which requires approximately 22 gigabytes of disk space. Depending on the speed of your computer and network connection, the synchronization process can take anywhere from a few hours to a day or more.
 
-To download Krypton Core, visit [krypton.org](https://krypton.org/).
+To download Krypton Core, visit [krypton-project.com](https://krypton-project.com/).
 
 Running
 ---------------------
