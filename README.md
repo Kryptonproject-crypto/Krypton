@@ -5,7 +5,7 @@ Launched on **July 24, 2025**, Krypton’s goal is to be **fast, lightweight, an
 No premine, no VC funding — just a **clean, community-driven blockchain**.
 
 - 🌐 **Official website:** [krypton-project.com](https://krypton-project.com)  
-- 🔎 **Block Explorer:** [explorer](https://krypton-project.com/explorer/index.php)
+- 🔎 **Block Explorer:** [explorer](https://explorer.krypton-project.com)
 
 ---
 
