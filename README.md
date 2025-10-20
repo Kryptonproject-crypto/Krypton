@@ -97,7 +97,8 @@ Krypton is open to everyone. You are welcome to:
 - 💳 Launch new wallets  
 - 🖧 Run nodes  
 
-Join us on [GitHub](https://github.com/Kryptonproject-crypto/Krypton) or [Discord](https://discord.gg/g8c64BccQZ)  and help grow Krypton!  
+Join us on [GitHub](https://github.com/Kryptonproject-crypto/Krypton) or [Discord](https://discord.gg/g8c64BccQZ)  and help grow Krypton! 
+[X](https://x.com/Krypton_KYP) 
 
 ---
 
