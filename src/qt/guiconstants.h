@@ -47,7 +47,7 @@ static const int MAX_URI_LENGTH = 255;
 #define SPINNER_FRAMES 36
 
 #define QAPP_ORG_NAME "Krypton"
-#define QAPP_ORG_DOMAIN "krypton.org"
+#define QAPP_ORG_DOMAIN "krypton-explorer.org"
 #define QAPP_APP_NAME_DEFAULT "Krypton-Qt"
 #define QAPP_APP_NAME_TESTNET "Krypton-Qt-testnet"
 #define QAPP_APP_NAME_REGTEST "Krypton-Qt-regtest"
