@@ -111,7 +111,7 @@ public:
         assert(consensus.hashGenesisBlock == uint256S("0x1dac3550cb926b7a44df033bf6bcac3660da63612376816f92c2de2c36d9edf6"));
         assert(genesis.hashMerkleRoot == uint256S("0x708665c56d1074161af8b7ec6144d7f99f1671afe09a1abdaed5f27892c1f44c"));
 
-        //vSeeds.emplace_back("xxxxxxxxxxxxx");
+        vSeeds.emplace_back("vseed.krypton-explorer.org"); // ton VPS comme VSEED officiel
 
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,45);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,23);
