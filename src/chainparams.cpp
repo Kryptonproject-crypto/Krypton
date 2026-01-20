@@ -129,19 +129,24 @@ public:
         fMineBlocksOnDemand = false;
 
         checkpointData = {
-            {
-                {  0, uint256S("0x1dac3550cb926b7a44df033bf6bcac3660da63612376816f92c2de2c36d9edf6")},
-                {  1, uint256S("0xa3a415511d787f83dd60cdca0459218a2115bc0e1e5b09d564ce8edc15855bbd")},
-                {  129, uint256S("0xc1a4a8fa2831d343a35f93112cf28bde7dc90047619ddf5dfad01c908811cadd")},
-
-            }
-        };
-
+    {
+        {      0, uint256S("0x1dac3550cb926b7a44df033bf6bcac3660da63612376816f92c2de2c36d9edf6")},
+        {      1, uint256S("0xa3a415511d787f83dd60cdca0459218a2115bc0e1e5b09d564ce8edc15855bbd")},
+        {    129, uint256S("0xc1a4a8fa2831d343a35f93112cf28bde7dc90047619ddf5dfad01c908811cadd")},
+        {  10000, uint256S("0x07925c566fb9da3266c7e2bb31dfce940c0bcabeece040cd0220631a9025ec7d")},
+        {  25000, uint256S("0x1f97a2fea96137487f6ba7a4db6994cea774d39ef1e7c38a25fd4719a5b47aca")},
+        {  50000, uint256S("0xfcaf975077fce5b49441e88ee51d63dd13bdbed763d33dc29271323acfc33893")},
+        { 100000, uint256S("0xa8890d95d5e6c5d137a328f495278207038805770201e55fe210b4314c718d30")},
+        { 150000, uint256S("0x2d6cc41e2f3fd3a63373c0d88d0bb2d835a4221b0165849e772b1d18a2508bcc")},
+        { 200000, uint256S("0x0510da0499edd91696e11319b7afb3cfa9c36271de813a70bee37d2823a2a0ee")},
+        { 240000, uint256S("0x30f4e61e73a2b0cd62f7aefff5aab026ea54c770dbcf94e271d2fe8631799612")},
+    }
+};
        chainTxData = ChainTxData{
-    // Data from rpc: getchaintxstats 129 c1a4a8fa2831d343a35f93112cf28bde7dc90047619ddf5dfad01c908811cadd
-    /* nTime    */ 1753634141,
-    /* nTxCount */ 130,
-    /* dTxRate  */ 0.9219858156028369,
+    // Data from rpc: getchaintxstats 4096 30f4e61e73a2b0cd62f7aefff5aab026ea54c770dbcf94e271d2fe8631799612
+    /* nTime    */ 1768376135,
+    /* nTxCount */ 268948,
+    /* dTxRate  */ 0.0173546912972218,
 };
 
         m_fallback_fee_enabled = true;
