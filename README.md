@@ -4,8 +4,8 @@ Krypton is a new open-source cryptocurrency based on **Litecoin**.
 Launched on **July 24, 2025**, Krypton’s goal is to be **fast, lightweight, and accessible to everyone**.  
 No premine, no VC funding — just a **clean, community-driven blockchain**.
 
-- 🌐 **Official website:** [krypton-project.com](https://krypton-project.com)  
-- 🔎 **Block Explorer:** [explorer](https://explorer.krypton-project.com)
+- 🌐 **Official website:** [krypton-exploer.org](https://krypton-explorer.org)  
+- 🔎 **Block Explorer:** [explorer](https://explorer.krypton-explorer.org)
 
 ---
 
