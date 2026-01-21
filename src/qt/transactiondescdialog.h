@@ -24,6 +24,9 @@ public:
     explicit TransactionDescDialog(const QModelIndex &idx, QWidget *parent = nullptr);
     ~TransactionDescDialog();
 
+protected:
+    bool eventFilter(QObject *obj, QEvent *event);
+
 private:
     Ui::TransactionDescDialog *ui;
 };
