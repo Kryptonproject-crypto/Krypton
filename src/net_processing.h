@@ -75,6 +75,12 @@ public:
 private:
     int64_t m_stale_tip_check_time; //!< Next time to check for stale tip
 
+    /** Krypton: how often (seconds) to check for stale tips / extra outbound peers,
+     *  scaled from the chain's block spacing instead of hardcoded to Bitcoin's 10-minute
+     *  blocks, so peer rotation reacts proportionally as fast as the chain progresses. */
+    int64_t m_stale_check_interval;
+    int64_t m_extra_peer_check_interval;
+
     /** Enable BIP61 (sending reject messages) */
     const bool m_enable_bip61;
 };

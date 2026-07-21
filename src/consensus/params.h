@@ -75,6 +75,14 @@ struct Params {
     int64_t DifficultyAdjustmentInterval() const { return nPowTargetTimespan / nPowTargetSpacing; }
     uint256 nMinimumChainWork;
     uint256 defaultAssumeValid;
+    /** Krypton: height at which the faster-reacting LWMA window (nLWMA2WindowSize) activates.
+     *  Set to 0 to disable (use the legacy N=120 window from genesis). */
+    int nLWMA2Height;
+    /** Krypton: averaging window (in blocks) used by LWMA once nLWMA2Height is reached. */
+    int64_t nLWMA2WindowSize;
+    /** Krypton: maximum number of blocks a competing chain may fork below the current tip
+     *  before it is rejected outright (deep-reorg / 51% protection). 0 disables the check. */
+    int nMaxReorgDepth;
 };
 } // namespace Consensus
 

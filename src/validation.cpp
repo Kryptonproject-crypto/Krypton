@@ -1158,7 +1158,11 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     if (halvings >= 64)
         return 0;
 
-    CAmount nSubsidy = 14.26940639 * COIN;
+    // Krypton: was previously a floating-point literal (14.26940639 * COIN). Floating-point
+    // in consensus-critical code is not guaranteed bit-identical across all platforms/compilers,
+    // so it's replaced here with the exact equivalent integer (verified: 14.26940639 * 1e8 =
+    // 1426940639 exactly, no rounding difference). This changes nothing about the reward amount.
+    CAmount nSubsidy = 1426940639;
     // Subsidy is cut in half every 525,600 blocks which will occur approximately every year.
     nSubsidy >>= halvings;
     return nSubsidy;
@@ -3351,6 +3355,17 @@ static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, c
     return true;
 }
 
+// Krypton: resolve the effective deep-reorg depth limit. Node-local policy: the -maxreorgdepth
+// startup option (if set) overrides the per-network consensus default. Returns <= 0 when the
+// guard is disabled. gArgs is fixed at startup and callers hold cs_main, so this is safe.
+static int GetEffectiveMaxReorgDepth(const Consensus::Params& consensus)
+{
+    if (gArgs.IsArgSet("-maxreorgdepth")) {
+        return (int)gArgs.GetArg("-maxreorgdepth", consensus.nMaxReorgDepth);
+    }
+    return consensus.nMaxReorgDepth;
+}
+
 bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, const CChainParams& chainparams, CBlockIndex** ppindex)
 {
     AssertLockHeld(cs_main);
@@ -3417,6 +3432,37 @@ bool CChainState::AcceptBlockHeader(const CBlockHeader& block, CValidationState&
                         invalid_walk = invalid_walk->pprev;
                     }
                     return state.DoS(100, error("%s: prev block invalid", __func__), REJECT_INVALID, "bad-prevblk");
+                }
+            }
+        }
+
+        // Krypton: deep-reorg protection. Refuse to even accept the header of a block that
+        // builds on a fork point more than nMaxReorgDepth blocks below our current active
+        // tip. The measured depth is (activeTip.height - forkPoint.height), i.e. exactly how
+        // many blocks of our own already-validated history we would have to orphan to adopt
+        // this branch -- so an honest, up-to-date node protects its confirmed history against
+        // a 51%-style deep reorg. Rejecting at header time means the offending branch never
+        // enters the block-download or candidate machinery at all, so it cannot get the node
+        // stuck (unlike refusing later inside FindMostWorkChain/ActivateBestChainStep, where a
+        // higher-work-but-refused chain would keep being re-selected and block the node's own
+        // chain from advancing).
+        //
+        // Disabled during initial block download: while syncing, chainActive legitimately lags
+        // far behind the headers we are fetching, and normal catch-up across old forks must not
+        // be mistaken for an attack. Also disabled when nMaxReorgDepth <= 0 (e.g. regtest),
+        // which keeps existing functional tests and normal deep-reorg testing unaffected.
+        const int nMaxReorgDepth = GetEffectiveMaxReorgDepth(chainparams.GetConsensus());
+        if (nMaxReorgDepth > 0 && !IsInitialBlockDownload() && chainActive.Tip() != nullptr) {
+            const CBlockIndex* pindexFork = chainActive.FindFork(pindexPrev);
+            if (pindexFork != nullptr) {
+                const int nReorgDepth = chainActive.Tip()->nHeight - pindexFork->nHeight;
+                if (nReorgDepth > nMaxReorgDepth) {
+                    // nDoS = 0: reject the header but do not penalise the peer. A peer caught on
+                    // the wrong side of a rare, legitimate deep fork is not misbehaving, and we
+                    // do not want to ban it; the header is simply refused.
+                    return state.Invalid(error("%s: header %s builds on a fork %d blocks deep, exceeding the maximum reorg depth of %d; refusing to protect against deep reorg",
+                                               __func__, hash.ToString(), nReorgDepth, nMaxReorgDepth),
+                                         REJECT_INVALID, "bad-fork-too-deep");
                 }
             }
         }
