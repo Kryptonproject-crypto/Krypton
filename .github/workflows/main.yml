@@ -22,9 +22,9 @@ permissions:
 jobs:
   build-windows:
     # Cross-compiled FROM Linux using the project's own `depends` system + mingw-w64.
-    # This is the standard, well-tested approach for Bitcoin/Litecoin-derived codebases,
-    # and `depends` already contains every patch Berkeley DB 4.8 needs to build with
-    # modern toolchains.
+    # `depends` builds Qt 5.9.7 STATICALLY, so krypton-qt.exe is a single
+    # self-contained file with no DLLs to ship. Building Qt takes a while
+    # (expect this job to run 60-90 minutes).
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -43,12 +43,12 @@ jobs:
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
-      - name: Build dependencies (depends system, includes Berkeley DB 4.8)
+      - name: Build dependencies (depends system, includes BDB 4.8, Qt 5.9.7, protobuf, qrencode)
         run: |
           cd depends
-          make HOST=x86_64-w64-mingw32 NO_QT=1 -j$(nproc)
+          make HOST=x86_64-w64-mingw32 -j$(nproc)
 
-      - name: Build Windows binaries
+      - name: Build Windows binaries (daemon, CLI and GUI)
         run: |
           ./autogen.sh
           # -DNOMINMAX globally: stop <windows.h> from defining min/max macros that
@@ -56,7 +56,7 @@ jobs:
           # windows.h in before a local NOMINMAX define.
           CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure \
             CPPFLAGS="-DNOMINMAX" \
-            --without-gui --disable-tests --disable-bench --prefix=/
+            --disable-tests --disable-bench --prefix=/
           make -j$(nproc)
 
       - name: Package Windows binaries
@@ -64,6 +64,7 @@ jobs:
           OUT="krypton-${{ inputs.version }}-win64"
           mkdir -p "$OUT"
           cp src/kryptond.exe src/krypton-cli.exe src/krypton-tx.exe "$OUT"/
+          cp src/qt/krypton-qt.exe "$OUT"/
           cp README.md COPYING "$OUT"/
           zip -r "${OUT}.zip" "$OUT"
 
@@ -86,7 +87,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libtool autotools-dev automake \
             pkg-config bsdmainutils curl git libboost-all-dev libssl-dev \
-            libevent-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler
+            libevent-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler \
+            qtbase5-dev qttools5-dev qttools5-dev-tools libqrencode-dev
 
       - name: Build Berkeley DB 4.8
         run: |
@@ -99,7 +101,7 @@ jobs:
           #   2. rename __atomic_compare_exchange/atomic_init, which collide with
           #      built-in functions of modern GCC/clang and break the build
           #   3. replace BDB's ancient bundled config.guess/config.sub (they misdetect
-          #      modern platforms, e.g. "no mutex implementation" on recent macOS)
+          #      modern platforms)
           BDB_SHA256="12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef"
           curl -fL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz \
             || curl -fL -o db-4.8.30.NC.tar.gz https://bitcoincore.org/depends-sources/db-4.8.30.NC.tar.gz
@@ -114,11 +116,11 @@ jobs:
           make -j$(nproc)
           sudo make install
 
-      - name: Build Linux 64-bit
+      - name: Build Linux 64-bit (daemon, CLI and GUI)
         run: |
           ./autogen.sh
           ./configure LDFLAGS="-L/usr/local/bdb4.8/lib" CPPFLAGS="-I/usr/local/bdb4.8/include" \
-            --without-gui --disable-tests --disable-bench --without-miniupnpc
+            --disable-tests --disable-bench --without-miniupnpc
           make -j$(nproc)
 
       - name: Package Linux binaries
@@ -126,6 +128,7 @@ jobs:
           OUT="krypton-${{ inputs.version }}-x86_64-linux-gnu"
           mkdir -p "$OUT"
           cp src/kryptond src/krypton-cli src/krypton-tx "$OUT"/
+          cp src/qt/krypton-qt "$OUT"/
           cp README.md COPYING "$OUT"/
           tar -czf "${OUT}.tar.gz" "$OUT"
 
@@ -150,8 +153,14 @@ jobs:
           # make any `brew` command fail. Untap them: we only need core formulae.
           brew untap aws/tap 2>/dev/null || true
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          # qt@5 (5.15): same major Qt as the Linux build, source-compatibility with
+          #   this codebase is proven.
+          # protobuf@21: the last protobuf line that supports C++11. Current protobuf
+          #   (v27+, abseil-based) requires C++17 and a different generated-code API,
+          #   which breaks this -std=c++11 codebase.
           # NOTE: boost deliberately NOT installed from brew -- see next step.
-          brew install automake libtool miniupnpc openssl@3 pkg-config zmq libevent
+          brew install automake libtool miniupnpc openssl@3 pkg-config zmq libevent \
+            qt@5 protobuf@21 qrencode
 
       - name: Build Boost 1.83 from source
         run: |
@@ -184,13 +193,10 @@ jobs:
           sed -i.old 's/atomic_init/atomic_init_db/' dbinc/atomic.h mp/mp_region.c mp/mp_mvcc.c mp/mp_fget.c mutex/mut_method.c mutex/mut_tas.c
           cp -f ../depends/config.guess ../depends/config.sub dist/
           cd build_unix
-          # Two macOS-specific fixes:
           # --with-mutex=POSIX/pthreads: modern Xcode clang treats old-C implicit
           #   function declarations as hard errors, so ALL of BDB's assembly-mutex
-          #   configure probes fail to compile ("Unable to find a mutex
-          #   implementation"). Forcing pthread mutexes skips those probes -- and
-          #   also avoids configure picking 32-bit ARM assembly that would not even
-          #   build on Apple Silicon (arm64).
+          #   configure probes fail. Forcing pthread mutexes skips those probes and
+          #   avoids 32-bit ARM assembly that would not build on Apple Silicon.
           # CFLAGS -std=gnu89 applies the C standard of this 2010-era C code so
           #   pre-C99 constructs stay warnings instead of errors under modern clang.
           # CXXFLAGS is set EXPLICITLY because BDB's build otherwise reuses CFLAGS
@@ -203,31 +209,61 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           sudo make install
 
-      - name: Build macOS
+      - name: Build macOS (daemon, CLI and GUI)
         run: |
+          # qt@5 and protobuf@21 are keg-only: expose them explicitly.
+          QT5_PREFIX="$(brew --prefix qt@5)"
+          PB21_PREFIX="$(brew --prefix protobuf@21)"
+          export PATH="${QT5_PREFIX}/bin:${PB21_PREFIX}/bin:$PATH"
+          export PKG_CONFIG_PATH="${QT5_PREFIX}/lib/pkgconfig:${PB21_PREFIX}/lib/pkgconfig:$PKG_CONFIG_PATH"
           ./autogen.sh
-          ./configure LDFLAGS="-L/usr/local/bdb4.8/lib" CPPFLAGS="-I/usr/local/bdb4.8/include" \
+          ./configure LDFLAGS="-L/usr/local/bdb4.8/lib -L${PB21_PREFIX}/lib" \
+            CPPFLAGS="-I/usr/local/bdb4.8/include -I${PB21_PREFIX}/include" \
             --with-boost=/usr/local/boost183 \
-            --without-gui --disable-tests --disable-bench --without-miniupnpc
+            --disable-tests --disable-bench --without-miniupnpc
           make -j$(sysctl -n hw.ncpu)
 
-      - name: Package macOS binaries
+      - name: Package macOS binaries (tar.gz + DMG with bundled Qt)
         run: |
-          # macos-latest runners are Apple Silicon (arm64); label the archive with the
-          # actual architecture instead of hardcoding x86_64.
           ARCH=$(uname -m)
           OUT="krypton-${{ inputs.version }}-${ARCH}-apple-darwin"
           echo "OUT=$OUT" >> $GITHUB_ENV
           mkdir -p "$OUT"
           cp src/kryptond src/krypton-cli src/krypton-tx "$OUT"/
+          cp src/qt/krypton-qt "$OUT"/
           cp README.md COPYING "$OUT"/
           tar -czf "${OUT}.tar.gz" "$OUT"
+
+          # Build a double-clickable .app + .dmg. macdeployqt copies the Qt
+          # frameworks INTO the app bundle so end users need nothing installed.
+          QT5_PREFIX="$(brew --prefix qt@5)"
+          APP="Krypton-Qt.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp src/qt/krypton-qt "$APP/Contents/MacOS/Krypton-Qt"
+          cat > "$APP/Contents/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key><string>Krypton-Qt</string>
+            <key>CFBundleIdentifier</key><string>org.krypton.KryptonQt</string>
+            <key>CFBundleName</key><string>Krypton-Qt</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${{ inputs.version }}</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          "${QT5_PREFIX}/bin/macdeployqt" "$APP" -dmg
+          mv "Krypton-Qt.dmg" "krypton-${{ inputs.version }}-${ARCH}-apple-darwin-setup.dmg"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries
-          path: ${{ env.OUT }}.tar.gz
+          path: |
+            ${{ env.OUT }}.tar.gz
+            krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg
 
   create-release:
     needs: [build-windows, build-linux, build-macos]
@@ -254,20 +290,29 @@ jobs:
 
             ### Downloads
 
-            - `krypton-${{ inputs.version }}-win64.zip` — Windows 64-bit
-            - `krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz` — Linux 64-bit
-            - `krypton-${{ inputs.version }}-*-apple-darwin.tar.gz` — macOS
+            **Windows:**
+            - `krypton-${{ inputs.version }}-win64.zip` — GUI wallet (`krypton-qt.exe`, single self-contained file), node daemon and CLI tools
 
-            Each archive contains the node daemon and the wallet CLI (`kryptond`,
-            `krypton-cli`, `krypton-tx`) — no graphical window. Start the node with
-            `kryptond -daemon`, then manage your wallet with `krypton-cli`
-            (`getnewaddress`, `sendtoaddress`, `getbalance`, etc.).
+            **Linux:**
+            - `krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz` — GUI wallet (`krypton-qt`), node daemon and CLI tools
+              (GUI requires Qt 5 runtime: `sudo apt install libqt5widgets5 libqt5network5 libqt5dbus5`)
 
-            ### Verify your download
-            Run `./kryptond --version` — it should report v${{ inputs.version }}.
+            **macOS:**
+            - `krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg` — double-clickable app with Qt bundled
+            - `krypton-${{ inputs.version }}-*-apple-darwin.tar.gz` — command-line binaries
+
+            ### Installation
+
+            **Windows:** extract the ZIP and run `krypton-qt.exe`
+            **Linux:** extract and run `./krypton-qt`
+            **macOS:** mount the DMG and drag Krypton-Qt to Applications
+
+            Advanced users can run the headless node with `kryptond -daemon` and manage
+            the wallet with `krypton-cli` (`getnewaddress`, `sendtoaddress`, `getbalance`, ...).
           files: |
             krypton-${{ inputs.version }}-win64.zip
             krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz
+            krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg
             krypton-${{ inputs.version }}-*-apple-darwin.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
