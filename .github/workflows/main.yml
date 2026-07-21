@@ -22,10 +22,9 @@ permissions:
 jobs:
   build-windows:
     # Cross-compiled FROM Linux using the project's own `depends` system + mingw-w64.
-    # This is the standard, well-tested approach for Bitcoin/Litecoin-derived codebases.
-    # Building natively on a windows-latest runner (as before) relies on the `depends`
-    # Makefile system running correctly under Git Bash, which is fragile and not how
-    # this kind of project is normally built.
+    # This is the standard, well-tested approach for Bitcoin/Litecoin-derived codebases,
+    # and `depends` already contains every patch Berkeley DB 4.8 needs to build with
+    # modern toolchains.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -87,21 +86,26 @@ jobs:
 
       - name: Build Berkeley DB 4.8
         run: |
-          # Ubuntu's own libdb++-dev package is v5.3+, which produces wallets that
-          # are not guaranteed compatible with the 4.8 wallets built for Windows/macOS.
-          # Build the exact version from source instead, same as the README.
-          #
-          # download.oracle.com is well known to be unreliable for scripted/CI
-          # downloads (empty responses, throttling). Fall back to the mirror the
-          # project's own `depends` system already uses for this exact reason, and
-          # verify the checksum so a bad download fails loudly here instead of as a
-          # confusing tar error later.
+          # Ubuntu's own libdb++-dev package is v5.3+, which produces wallets that are
+          # not guaranteed compatible with the 4.8 wallets built for Windows/macOS.
+          # Build the exact version from source, replicating ALL the fixes that the
+          # project's own `depends` system applies to this package (depends/packages/bdb.mk):
+          #   1. download with a fallback mirror + checksum (download.oracle.com is
+          #      notoriously unreliable for scripted/CI downloads)
+          #   2. rename __atomic_compare_exchange/atomic_init, which collide with
+          #      built-in functions of modern GCC/clang and break the build
+          #   3. replace BDB's ancient bundled config.guess/config.sub (they misdetect
+          #      modern platforms, e.g. "no mutex implementation" on recent macOS)
           BDB_SHA256="12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef"
           curl -fL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz \
             || curl -fL -o db-4.8.30.NC.tar.gz https://bitcoincore.org/depends-sources/db-4.8.30.NC.tar.gz
           echo "${BDB_SHA256}  db-4.8.30.NC.tar.gz" | sha256sum -c -
-          tar -xzvf db-4.8.30.NC.tar.gz
-          cd db-4.8.30.NC/build_unix
+          tar -xzf db-4.8.30.NC.tar.gz
+          cd db-4.8.30.NC
+          sed -i.old 's/__atomic_compare_exchange/__atomic_compare_exchange_db/' dbinc/atomic.h
+          sed -i.old 's/atomic_init/atomic_init_db/' dbinc/atomic.h mp/mp_region.c mp/mp_mvcc.c mp/mp_fget.c mutex/mut_method.c mutex/mut_tas.c
+          cp -f ../depends/config.guess ../depends/config.sub dist/
+          cd build_unix
           ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
           make -j$(nproc)
           sudo make install
@@ -141,23 +145,22 @@ jobs:
 
       - name: Build Berkeley DB 4.8
         run: |
-          # Homebrew's berkeley-db@4 formula is deprecated / no longer reliably
-          # available. Build the exact version from source instead.
-          #
-          # download.oracle.com is well known to be unreliable for scripted/CI
-          # downloads (empty responses, throttling). Fall back to the mirror the
-          # project's own `depends` system already uses for this exact reason, and
-          # verify the checksum so a bad download fails loudly here instead of as a
-          # confusing tar error later.
+          # Same as the Linux job: build BDB 4.8 from source with ALL the fixes the
+          # project's `depends` system applies (see the Linux job for details).
+          # Homebrew's berkeley-db@4 formula is deprecated / no longer reliable.
           BDB_SHA256="12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef"
           curl -fL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz \
             || curl -fL -o db-4.8.30.NC.tar.gz https://bitcoincore.org/depends-sources/db-4.8.30.NC.tar.gz
           echo "${BDB_SHA256}  db-4.8.30.NC.tar.gz" | shasum -a 256 -c -
-          tar -xzvf db-4.8.30.NC.tar.gz
-          cd db-4.8.30.NC/build_unix
+          tar -xzf db-4.8.30.NC.tar.gz
+          cd db-4.8.30.NC
+          sed -i.old 's/__atomic_compare_exchange/__atomic_compare_exchange_db/' dbinc/atomic.h
+          sed -i.old 's/atomic_init/atomic_init_db/' dbinc/atomic.h mp/mp_region.c mp/mp_mvcc.c mp/mp_fget.c mutex/mut_method.c mutex/mut_tas.c
+          cp -f ../depends/config.guess ../depends/config.sub dist/
+          cd build_unix
           ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
           make -j$(sysctl -n hw.ncpu)
-          make install
+          sudo make install
 
       - name: Build macOS
         run: |
@@ -169,7 +172,7 @@ jobs:
       - name: Package macOS binaries
         run: |
           # macos-latest runners are Apple Silicon (arm64); label the archive with the
-          # actual architecture instead of hardcoding x86_64, which would be wrong.
+          # actual architecture instead of hardcoding x86_64.
           ARCH=$(uname -m)
           OUT="krypton-${{ inputs.version }}-${ARCH}-apple-darwin"
           echo "OUT=$OUT" >> $GITHUB_ENV
