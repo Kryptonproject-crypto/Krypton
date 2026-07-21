@@ -51,7 +51,11 @@ jobs:
       - name: Build Windows binaries
         run: |
           ./autogen.sh
+          # -DNOMINMAX globally: stop <windows.h> from defining min/max macros that
+          # break std::numeric_limits<...>::max() wherever include order lets
+          # windows.h in before a local NOMINMAX define.
           CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure \
+            CPPFLAGS="-DNOMINMAX" \
             --without-gui --disable-tests --disable-bench --prefix=/
           make -j$(nproc)
 
@@ -163,7 +167,19 @@ jobs:
           sed -i.old 's/atomic_init/atomic_init_db/' dbinc/atomic.h mp/mp_region.c mp/mp_mvcc.c mp/mp_fget.c mutex/mut_method.c mutex/mut_tas.c
           cp -f ../depends/config.guess ../depends/config.sub dist/
           cd build_unix
-          ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
+          # Two macOS-specific fixes:
+          # --with-mutex=POSIX/pthreads: modern Xcode clang treats old-C implicit
+          #   function declarations as hard errors, so ALL of BDB's assembly-mutex
+          #   configure probes fail to compile ("Unable to find a mutex
+          #   implementation"). Forcing pthread mutexes skips those probes -- and
+          #   also avoids configure picking 32-bit ARM assembly that would not even
+          #   build on Apple Silicon (arm64).
+          # CFLAGS -std=gnu89: compile this 2010-era C code with the C standard of
+          #   its time, so pre-C99 constructs stay warnings instead of errors.
+          ../dist/configure --enable-cxx --disable-shared --with-pic \
+            --with-mutex=POSIX/pthreads \
+            CFLAGS="-std=gnu89 -Wno-implicit-function-declaration" \
+            --prefix=/usr/local/bdb4.8
           make -j$(sysctl -n hw.ncpu)
           sudo make install
 

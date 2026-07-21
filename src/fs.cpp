@@ -90,7 +90,11 @@ bool FileLock::TryLock()
         return false;
     }
     _OVERLAPPED overlapped = {0};
-    if (!LockFileEx(hFile, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, std::numeric_limits<DWORD>::max(), std::numeric_limits<DWORD>::max(), &overlapped)) {
+    // Krypton: (std::numeric_limits<DWORD>::max)() is parenthesized so that the
+    // expression survives even when some header pulled in <windows.h> before our
+    // NOMINMAX define above (e.g. via boost) and its `max` function-like macro is
+    // active. With newer mingw/boost headers this otherwise breaks compilation.
+    if (!LockFileEx(hFile, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, (std::numeric_limits<DWORD>::max)(), (std::numeric_limits<DWORD>::max)(), &overlapped)) {
         reason = GetErrorReason();
         return false;
     }
