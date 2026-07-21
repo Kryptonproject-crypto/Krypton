@@ -141,6 +141,11 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # GitHub's macOS runners ship with extra pre-installed Homebrew taps
+          # (e.g. aws/tap) that Homebrew's new tap-trust policy refuses, which can
+          # make any `brew` command fail. Untap them: we only need core formulae.
+          brew untap aws/tap 2>/dev/null || true
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
           brew install automake libtool boost miniupnpc openssl@3 pkg-config zmq libevent
 
       - name: Build Berkeley DB 4.8
