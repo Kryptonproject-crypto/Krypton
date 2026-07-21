@@ -5,6 +5,7 @@
 #else
 #define NOMINMAX
 #include <codecvt>
+#include <limits>
 #include <windows.h>
 #endif
 

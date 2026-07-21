@@ -174,11 +174,14 @@ jobs:
           #   implementation"). Forcing pthread mutexes skips those probes -- and
           #   also avoids configure picking 32-bit ARM assembly that would not even
           #   build on Apple Silicon (arm64).
-          # CFLAGS -std=gnu89: compile this 2010-era C code with the C standard of
-          #   its time, so pre-C99 constructs stay warnings instead of errors.
+          # CFLAGS -std=gnu89 applies the C standard of this 2010-era C code so
+          #   pre-C99 constructs stay warnings instead of errors under modern clang.
+          # CXXFLAGS is set EXPLICITLY because BDB's build otherwise reuses CFLAGS
+          #   for its C++ wrapper files, and -std=gnu89 is invalid for C++.
           ../dist/configure --enable-cxx --disable-shared --with-pic \
             --with-mutex=POSIX/pthreads \
             CFLAGS="-std=gnu89 -Wno-implicit-function-declaration" \
+            CXXFLAGS="-O2" \
             --prefix=/usr/local/bdb4.8
           make -j$(sysctl -n hw.ncpu)
           sudo make install
