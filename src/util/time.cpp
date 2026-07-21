@@ -15,6 +15,17 @@
 #include <ctime>
 #include <tinyformat.h>
 
+#ifdef WIN32
+// Krypton: mingw-w64 does not declare POSIX gmtime_r by default (it only exposes
+// it behind _POSIX_THREAD_SAFE_FUNCTIONS). Provide a thin shim over the
+// always-available Windows secure variant gmtime_s, which is equally
+// thread-safe, so the portable call sites below work unchanged.
+static struct tm* gmtime_r(const time_t* timep, struct tm* result)
+{
+    return gmtime_s(result, timep) == 0 ? result : nullptr;
+}
+#endif
+
 static std::atomic<int64_t> nMockTime(0); //!< For unit testing
 
 int64_t GetTime()

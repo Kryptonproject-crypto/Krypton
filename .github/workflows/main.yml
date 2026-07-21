@@ -150,7 +150,24 @@ jobs:
           # make any `brew` command fail. Untap them: we only need core formulae.
           brew untap aws/tap 2>/dev/null || true
           export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
-          brew install automake libtool boost miniupnpc openssl@3 pkg-config zmq libevent
+          # NOTE: boost deliberately NOT installed from brew -- see next step.
+          brew install automake libtool miniupnpc openssl@3 pkg-config zmq libevent
+
+      - name: Build Boost 1.83 from source
+        run: |
+          # Two reasons not to use brew's boost:
+          #  1. This 2018-era configure script does not know Homebrew's Apple
+          #     Silicon prefix (/opt/homebrew), so it simply fails to find boost.
+          #  2. brew ships boost 1.89, never tested against this codebase. 1.83 is
+          #     the exact version the (fully succeeding) Linux job builds with, so
+          #     compatibility is already proven.
+          curl -fL -o boost_1_83_0.tar.gz https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.gz \
+            || curl -fL -o boost_1_83_0.tar.gz https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.tar.gz
+          tar -xzf boost_1_83_0.tar.gz
+          cd boost_1_83_0
+          ./bootstrap.sh --with-libraries=system,filesystem,thread,chrono,atomic
+          sudo ./b2 -j$(sysctl -n hw.ncpu) link=static cxxflags="-std=c++11" \
+            --prefix=/usr/local/boost183 install > /dev/null
 
       - name: Build Berkeley DB 4.8
         run: |
@@ -190,7 +207,8 @@ jobs:
         run: |
           ./autogen.sh
           ./configure LDFLAGS="-L/usr/local/bdb4.8/lib" CPPFLAGS="-I/usr/local/bdb4.8/include" \
-            --without-gui --disable-tests --disable-bench
+            --with-boost=/usr/local/boost183 \
+            --without-gui --disable-tests --disable-bench --without-miniupnpc
           make -j$(sysctl -n hw.ncpu)
 
       - name: Package macOS binaries
