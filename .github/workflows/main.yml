@@ -90,7 +90,16 @@ jobs:
           # Ubuntu's own libdb++-dev package is v5.3+, which produces wallets that
           # are not guaranteed compatible with the 4.8 wallets built for Windows/macOS.
           # Build the exact version from source instead, same as the README.
-          curl -O http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz
+          #
+          # download.oracle.com is well known to be unreliable for scripted/CI
+          # downloads (empty responses, throttling). Fall back to the mirror the
+          # project's own `depends` system already uses for this exact reason, and
+          # verify the checksum so a bad download fails loudly here instead of as a
+          # confusing tar error later.
+          BDB_SHA256="12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef"
+          curl -fL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz \
+            || curl -fL -o db-4.8.30.NC.tar.gz https://bitcoincore.org/depends-sources/db-4.8.30.NC.tar.gz
+          echo "${BDB_SHA256}  db-4.8.30.NC.tar.gz" | sha256sum -c -
           tar -xzvf db-4.8.30.NC.tar.gz
           cd db-4.8.30.NC/build_unix
           ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
@@ -134,7 +143,16 @@ jobs:
         run: |
           # Homebrew's berkeley-db@4 formula is deprecated / no longer reliably
           # available. Build the exact version from source instead.
-          curl -O http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz
+          #
+          # download.oracle.com is well known to be unreliable for scripted/CI
+          # downloads (empty responses, throttling). Fall back to the mirror the
+          # project's own `depends` system already uses for this exact reason, and
+          # verify the checksum so a bad download fails loudly here instead of as a
+          # confusing tar error later.
+          BDB_SHA256="12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef"
+          curl -fL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz \
+            || curl -fL -o db-4.8.30.NC.tar.gz https://bitcoincore.org/depends-sources/db-4.8.30.NC.tar.gz
+          echo "${BDB_SHA256}  db-4.8.30.NC.tar.gz" | shasum -a 256 -c -
           tar -xzvf db-4.8.30.NC.tar.gz
           cd db-4.8.30.NC/build_unix
           ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
