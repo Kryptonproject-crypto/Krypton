@@ -31,6 +31,7 @@
 #include <util/strencodings.h>
 
 #include <memory>
+#include <array>
 
 #if defined(NDEBUG)
 # error "Krypton cannot be compiled without assertions."
@@ -48,12 +49,14 @@ static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_PER_HEADER = 1000; // 1ms/head
  * behind headers chain.
  */
 static constexpr int32_t MAX_OUTBOUND_PEERS_TO_PROTECT_FROM_DISCONNECT = 4;
-/** Timeout for (unprotected) outbound peers to sync to our chainwork, in seconds */
-static constexpr int64_t CHAIN_SYNC_TIMEOUT = 20 * 60; // 20 minutes
-/** How frequently to check for stale tips, in seconds */
-static constexpr int64_t STALE_CHECK_INTERVAL = 2.5 * 60; // 2.5 minutes
-/** How frequently to check for extra outbound peers and disconnect, in seconds */
-static constexpr int64_t EXTRA_PEER_CHECK_INTERVAL = 45;
+/** Timeout for (unprotected) outbound peers to sync to our chainwork, in seconds.
+ *  Krypton: computed at runtime from nPowTargetSpacing (see ChainSyncTimeout()) instead
+ *  of Bitcoin's hardcoded 20 minutes, which would otherwise tolerate ~20 blocks of lag
+ *  on this chain's 60s blocks instead of the intended ~2 blocks of lag. */
+static int64_t ChainSyncTimeout(const Consensus::Params& params)
+{
+    return std::max<int64_t>(60, params.nPowTargetSpacing * 2);
+}
 /** Minimum time an outbound-peer-eviction candidate must be connected for, in order to evict, in seconds */
 static constexpr int64_t MINIMUM_CONNECT_TIME = 30;
 /** SHA256("main address relay")[0:8] */
@@ -861,12 +864,19 @@ PeerLogicValidation::PeerLogicValidation(CConnman* connmanIn, BanMan* banman, CS
     recentRejects.reset(new CRollingBloomFilter(120000, 0.000001));
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
+    // Krypton: STALE_CHECK_INTERVAL/EXTRA_PEER_CHECK_INTERVAL were inherited unchanged
+    // from Bitcoin's 10-minute block spacing (150s / 45s, i.e. ~spacing/4 and ~spacing/13.3).
+    // Scale them to this chain's actual nPowTargetSpacing so stale-tip detection and
+    // peer rotation react proportionally as fast as the chain progresses. Floors keep
+    // things sane on networks with very fast test spacing.
+    m_stale_check_interval = std::max<int64_t>(15, consensusParams.nPowTargetSpacing / 4);
+    m_extra_peer_check_interval = std::max<int64_t>(5, consensusParams.nPowTargetSpacing * 3 / 40);
     // Stale tip checking and peer eviction are on two different timers, but we
     // don't want them to get out of sync due to drift in the scheduler, so we
     // combine them in one function and schedule at the quicker (peer-eviction)
     // timer.
-    static_assert(EXTRA_PEER_CHECK_INTERVAL < STALE_CHECK_INTERVAL, "peer eviction timer should be less than stale tip check timer");
-    scheduler.scheduleEvery(std::bind(&PeerLogicValidation::CheckForStaleTipAndEvictPeers, this, consensusParams), EXTRA_PEER_CHECK_INTERVAL * 1000);
+    assert(m_extra_peer_check_interval < m_stale_check_interval && "peer eviction timer should be less than stale tip check timer");
+    scheduler.scheduleEvery(std::bind(&PeerLogicValidation::CheckForStaleTipAndEvictPeers, this, consensusParams), m_extra_peer_check_interval * 1000);
 }
 
 /**
@@ -3131,7 +3141,7 @@ void PeerLogicValidation::ConsiderEviction(CNode *pto, int64_t time_in_seconds)
             // that for the first time, OR this peer was able to catch up to some earlier point
             // where we checked against our tip.
             // Either way, set a new timeout based on current tip.
-            state.m_chain_sync.m_timeout = time_in_seconds + CHAIN_SYNC_TIMEOUT;
+            state.m_chain_sync.m_timeout = time_in_seconds + ChainSyncTimeout(Params().GetConsensus());
             state.m_chain_sync.m_work_header = chainActive.Tip();
             state.m_chain_sync.m_sent_getheaders = false;
         } else if (state.m_chain_sync.m_timeout > 0 && time_in_seconds > state.m_chain_sync.m_timeout) {
@@ -3235,7 +3245,7 @@ void PeerLogicValidation::CheckForStaleTipAndEvictPeers(const Consensus::Params 
         } else if (connman->GetTryNewOutboundPeer()) {
             connman->SetTryNewOutboundPeer(false);
         }
-        m_stale_tip_check_time = time_in_seconds + STALE_CHECK_INTERVAL;
+        m_stale_tip_check_time = time_in_seconds + m_stale_check_interval;
     }
 }
 

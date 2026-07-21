@@ -15,7 +15,12 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     assert(pindexLast != nullptr);
     unsigned int nProofOfWorkLimit = UintToArith256(params.powLimit).GetCompact();
   if (static_cast<uint32_t>(pindexLast->nHeight) >= 1) {
-      return LwmaCalculateNextWorkRequired(pindexLast, params);
+      // Krypton: use a shorter, faster-reacting averaging window once nLWMA2Height is reached.
+      int64_t N = 120;
+      if (params.nLWMA2Height > 0 && pindexLast->nHeight + 1 >= params.nLWMA2Height) {
+          N = params.nLWMA2WindowSize;
+      }
+      return LwmaCalculateNextWorkRequired(pindexLast, params, N);
   } else {
 
     // Only change once per difficulty adjustment interval
@@ -58,10 +63,14 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
   }
 }
 
-unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params)
+unsigned int LwmaCalculateNextWorkRequired(const CBlockIndex* pindexLast, const Consensus::Params& params, int64_t N)
 {
+    // Krypton: honor fPowNoRetargeting (regtest) the same way the legacy
+    // retarget path does, so regtest mining stays instant regardless of solvetimes.
+    if (params.fPowNoRetargeting)
+        return pindexLast->nBits;
+
     const int64_t T = params.nPowTargetSpacing;
-    const int64_t N = 120;
     const int64_t k = N * (N + 1) * T / 2;
     const int64_t height = pindexLast->nHeight;
     const arith_uint256 powLimit = UintToArith256(params.powLimit);

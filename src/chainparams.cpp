@@ -77,6 +77,13 @@ public:
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1800;
         consensus.nMinerConfirmationWindow = 2400;
+        // Krypton: faster-LWMA fork activates right after the first subsidy halving
+        // (block 525600), plus a ~1 day buffer (1440 blocks @ 60s) so nodes/pools have
+        // time to upgrade before it kicks in. Re-verify against the live chain height
+        // before tagging a release: activation must still be in the future at release time.
+        consensus.nLWMA2Height = 527040; // 525600 (halving) + 1440 (buffer)
+        consensus.nLWMA2WindowSize = 60; // ~1 hour window at 60s blocks, vs. 2h today
+        consensus.nMaxReorgDepth = 200;  // reject alternate chains forking more than ~3h below the tip
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999;
@@ -178,6 +185,9 @@ public:
         consensus.fPowNoRetargeting = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
+        consensus.nLWMA2Height = 0;
+        consensus.nLWMA2WindowSize = 60;
+        consensus.nMaxReorgDepth = 200;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1199145601; // January 1, 2008
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = 1230767999; // December 31, 2008
@@ -269,6 +279,12 @@ public:
         consensus.fPowNoRetargeting = true;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
+        consensus.nLWMA2Height = 0;   // legacy LWMA window on regtest (fork disabled)
+        consensus.nLWMA2WindowSize = 60;
+        // Disabled by default on regtest so it never interferes with normal regtest use or
+        // the deep-reorg functional tests. Set -maxreorgdepth=<n> at startup to exercise the
+        // guard on regtest.
+        consensus.nMaxReorgDepth = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
