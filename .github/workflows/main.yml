@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.5.0)'
+        description: 'Version number (e.g., 1.6.0)'
         required: true
         type: string
       create_release:
@@ -13,38 +13,56 @@ on:
         type: boolean
         default: true
 
+# Required so the create-release job (softprops/action-gh-release) is allowed to
+# publish a release. Without this, GITHUB_TOKEN defaults to read-only on many repos
+# and release creation fails with a 403 permission error.
+permissions:
+  contents: write
+
 jobs:
   build-windows:
-    runs-on: windows-latest
+    # Cross-compiled FROM Linux using the project's own `depends` system + mingw-w64.
+    # This is the standard, well-tested approach for Bitcoin/Litecoin-derived codebases.
+    # Building natively on a windows-latest runner (as before) relies on the `depends`
+    # Makefile system running correctly under Git Bash, which is fragile and not how
+    # this kind of project is normally built.
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Install cross-compile toolchain
         run: |
-          choco install mingw -y
-          
-      - name: Build Windows 64-bit
+          sudo apt-get update
+          sudo apt-get install -y build-essential libtool autotools-dev automake \
+            pkg-config bsdmainutils curl git ca-certificates python3 \
+            g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+          # Ubuntu's mingw-w64 defaults to the win32 threading model, which lacks
+          # std::thread support that this codebase needs. Switch to posix threads.
+          sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+          sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
+      - name: Build dependencies (depends system, includes Berkeley DB 4.8)
         run: |
           cd depends
-          make HOST=x86_64-w64-mingw32 -j$(nproc)
-          cd ..
+          make HOST=x86_64-w64-mingw32 NO_QT=1 -j$(nproc)
+
+      - name: Build Windows binaries
+        run: |
           ./autogen.sh
-          CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure --prefix=/
+          CONFIG_SITE=$PWD/depends/x86_64-w64-mingw32/share/config.site ./configure \
+            --without-gui --disable-tests --disable-bench --prefix=/
           make -j$(nproc)
-        shell: bash
 
       - name: Package Windows binaries
         run: |
-          mkdir -p krypton-${{ inputs.version }}-win64
-          cp src/kryptond.exe krypton-${{ inputs.version }}-win64/
-          cp src/krypton-cli.exe krypton-${{ inputs.version }}-win64/
-          cp src/krypton-tx.exe krypton-${{ inputs.version }}-win64/
-          cp src/qt/krypton-qt.exe krypton-${{ inputs.version }}-win64/
-          7z a krypton-${{ inputs.version }}-win64.zip krypton-${{ inputs.version }}-win64
-        shell: bash
+          OUT="krypton-${{ inputs.version }}-win64"
+          mkdir -p "$OUT"
+          cp src/kryptond.exe src/krypton-cli.exe src/krypton-tx.exe "$OUT"/
+          cp README.md COPYING "$OUT"/
+          zip -r "${OUT}.zip" "$OUT"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -65,23 +83,34 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libtool autotools-dev automake \
             pkg-config bsdmainutils curl git libboost-all-dev libssl-dev \
-            libevent-dev libdb++-dev libminiupnpc-dev libzmq3-dev \
-            libqt5gui5 libqt5core5a libqt5dbus5 qttools5-dev qttools5-dev-tools
+            libevent-dev libminiupnpc-dev libzmq3-dev libprotobuf-dev protobuf-compiler
+
+      - name: Build Berkeley DB 4.8
+        run: |
+          # Ubuntu's own libdb++-dev package is v5.3+, which produces wallets that
+          # are not guaranteed compatible with the 4.8 wallets built for Windows/macOS.
+          # Build the exact version from source instead, same as the README.
+          curl -O http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz
+          tar -xzvf db-4.8.30.NC.tar.gz
+          cd db-4.8.30.NC/build_unix
+          ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
+          make -j$(nproc)
+          sudo make install
 
       - name: Build Linux 64-bit
         run: |
           ./autogen.sh
-          ./configure --disable-tests --disable-bench
+          ./configure LDFLAGS="-L/usr/local/bdb4.8/lib" CPPFLAGS="-I/usr/local/bdb4.8/include" \
+            --without-gui --disable-tests --disable-bench --without-miniupnpc
           make -j$(nproc)
 
       - name: Package Linux binaries
         run: |
-          mkdir -p krypton-${{ inputs.version }}-x86_64-linux-gnu
-          cp src/kryptond krypton-${{ inputs.version }}-x86_64-linux-gnu/
-          cp src/krypton-cli krypton-${{ inputs.version }}-x86_64-linux-gnu/
-          cp src/krypton-tx krypton-${{ inputs.version }}-x86_64-linux-gnu/
-          cp src/qt/krypton-qt krypton-${{ inputs.version }}-x86_64-linux-gnu/
-          tar -czf krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz krypton-${{ inputs.version }}-x86_64-linux-gnu
+          OUT="krypton-${{ inputs.version }}-x86_64-linux-gnu"
+          mkdir -p "$OUT"
+          cp src/kryptond src/krypton-cli src/krypton-tx "$OUT"/
+          cp README.md COPYING "$OUT"/
+          tar -czf "${OUT}.tar.gz" "$OUT"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -99,44 +128,43 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install automake libtool boost miniupnpc openssl pkg-config \
-            berkeley-db@4 qt@5 zmq libevent
+          brew install automake libtool boost miniupnpc openssl@3 pkg-config zmq libevent
+
+      - name: Build Berkeley DB 4.8
+        run: |
+          # Homebrew's berkeley-db@4 formula is deprecated / no longer reliably
+          # available. Build the exact version from source instead.
+          curl -O http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz
+          tar -xzvf db-4.8.30.NC.tar.gz
+          cd db-4.8.30.NC/build_unix
+          ../dist/configure --enable-cxx --disable-shared --with-pic --prefix=/usr/local/bdb4.8
+          make -j$(sysctl -n hw.ncpu)
+          make install
 
       - name: Build macOS
         run: |
           ./autogen.sh
-          ./configure --disable-tests --disable-bench
+          ./configure LDFLAGS="-L/usr/local/bdb4.8/lib" CPPFLAGS="-I/usr/local/bdb4.8/include" \
+            --without-gui --disable-tests --disable-bench
           make -j$(sysctl -n hw.ncpu)
 
-      - name: Create DMG (macOS installer)
+      - name: Package macOS binaries
         run: |
-          mkdir -p dist
-          # Créer le .app bundle
-          mkdir -p "Krypton-Qt.app/Contents/MacOS"
-          cp src/qt/krypton-qt "Krypton-Qt.app/Contents/MacOS/"
-          
-          # Créer le DMG
-          hdiutil create -volname "Krypton ${{ inputs.version }}" \
-            -srcfolder "Krypton-Qt.app" \
-            -ov -format UDZO \
-            krypton-${{ inputs.version }}-x86_64-apple-darwin-setup.dmg
-
-      - name: Package macOS binaries (tar.gz)
-        run: |
-          mkdir -p krypton-${{ inputs.version }}-x86_64-apple-darwin
-          cp src/kryptond krypton-${{ inputs.version }}-x86_64-apple-darwin/
-          cp src/krypton-cli krypton-${{ inputs.version }}-x86_64-apple-darwin/
-          cp src/krypton-tx krypton-${{ inputs.version }}-x86_64-apple-darwin/
-          tar -czf krypton-${{ inputs.version }}-x86_64-apple-darwin.tar.gz \
-            krypton-${{ inputs.version }}-x86_64-apple-darwin
+          # macos-latest runners are Apple Silicon (arm64); label the archive with the
+          # actual architecture instead of hardcoding x86_64, which would be wrong.
+          ARCH=$(uname -m)
+          OUT="krypton-${{ inputs.version }}-${ARCH}-apple-darwin"
+          echo "OUT=$OUT" >> $GITHUB_ENV
+          mkdir -p "$OUT"
+          cp src/kryptond src/krypton-cli src/krypton-tx "$OUT"/
+          cp README.md COPYING "$OUT"/
+          tar -czf "${OUT}.tar.gz" "$OUT"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries
-          path: |
-            krypton-${{ inputs.version }}-x86_64-apple-darwin-setup.dmg
-            krypton-${{ inputs.version }}-x86_64-apple-darwin.tar.gz
+          path: ${{ env.OUT }}.tar.gz
 
   create-release:
     needs: [build-windows, build-linux, build-macos]
@@ -160,32 +188,23 @@ jobs:
           prerelease: false
           body: |
             ## Krypton v${{ inputs.version }}
-            
+
             ### Downloads
-            
-            **Windows:**
-            - `krypton-${{ inputs.version }}-win64.zip` - Portable binaries
-            
-            **Linux:**
-            - `krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz`
-            
-            **macOS:**
-            - `krypton-${{ inputs.version }}-x86_64-apple-darwin-setup.dmg` - macOS installer
-            - `krypton-${{ inputs.version }}-x86_64-apple-darwin.tar.gz` - macOS binaries
-            
-            ### Changes
-            - Updated to version ${{ inputs.version }}
-            - [Add your changelog here]
-            
-            ### Installation
-            
-            **Windows:** Extract the ZIP file and run krypton-qt.exe
-            **Linux:** Extract and run: `./krypton-qt`
-            **macOS:** Mount the DMG and drag to Applications folder
+
+            - `krypton-${{ inputs.version }}-win64.zip` — Windows 64-bit
+            - `krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz` — Linux 64-bit
+            - `krypton-${{ inputs.version }}-*-apple-darwin.tar.gz` — macOS
+
+            Each archive contains the node daemon and the wallet CLI (`kryptond`,
+            `krypton-cli`, `krypton-tx`) — no graphical window. Start the node with
+            `kryptond -daemon`, then manage your wallet with `krypton-cli`
+            (`getnewaddress`, `sendtoaddress`, `getbalance`, etc.).
+
+            ### Verify your download
+            Run `./kryptond --version` — it should report v${{ inputs.version }}.
           files: |
             krypton-${{ inputs.version }}-win64.zip
             krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz
-            krypton-${{ inputs.version }}-x86_64-apple-darwin-setup.dmg
-            krypton-${{ inputs.version }}-x86_64-apple-darwin.tar.gz
+            krypton-${{ inputs.version }}-*-apple-darwin.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
