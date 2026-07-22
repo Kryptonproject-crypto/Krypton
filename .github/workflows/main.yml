@@ -76,9 +76,13 @@ jobs:
           cp src/qt/krypton-qt.exe "$OUT"/
           cp README.md COPYING "$OUT"/
           zip -r "${OUT}.zip" "$OUT"
-          # Normalize the installer name to include the requested release version
-          # (configure derives its own version; keep the artifact name consistent).
-          mv krypton-*-setup.exe "krypton-${{ inputs.version }}-win64-setup.exe"
+          # Normalize the installer name to the requested release version. configure
+          # derives its own version string; when they already match, mv would fail
+          # with "same file", so only rename when the names actually differ.
+          SETUP=$(ls krypton-*-setup.exe | head -1)
+          TARGET="krypton-${{ inputs.version }}-win64-setup.exe"
+          if [ "$SETUP" != "$TARGET" ]; then mv "$SETUP" "$TARGET"; fi
+          ls -la "$TARGET"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -286,8 +290,142 @@ jobs:
             ${{ env.OUT }}.tar.gz
             krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg
 
+  build-macos-intel:
+    runs-on: macos-15-intel  # last Intel (x86_64) runner GitHub offers, supported until Aug 2027
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          # GitHub's macOS runners ship with extra pre-installed Homebrew taps
+          # (e.g. aws/tap) that Homebrew's new tap-trust policy refuses, which can
+          # make any `brew` command fail. Untap them: we only need core formulae.
+          brew untap aws/tap 2>/dev/null || true
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          # qt@5 (5.15): same major Qt as the Linux build, source-compatibility with
+          #   this codebase is proven.
+          # protobuf@21: the last protobuf line that supports C++11. Current protobuf
+          #   (v27+, abseil-based) requires C++17 and a different generated-code API,
+          #   which breaks this -std=c++11 codebase.
+          # NOTE: boost deliberately NOT installed from brew -- see next step.
+          brew install automake libtool miniupnpc openssl@3 pkg-config zmq libevent \
+            qt@5 protobuf@21 qrencode
+
+      - name: Build Boost 1.83 from source
+        run: |
+          # Two reasons not to use brew's boost:
+          #  1. This 2018-era configure script does not know Homebrew's Apple
+          #     Silicon prefix (/opt/homebrew), so it simply fails to find boost.
+          #  2. brew ships boost 1.89, never tested against this codebase. 1.83 is
+          #     the exact version the (fully succeeding) Linux job builds with, so
+          #     compatibility is already proven.
+          curl -fL -o boost_1_83_0.tar.gz https://archives.boost.io/release/1.83.0/source/boost_1_83_0.tar.gz \
+            || curl -fL -o boost_1_83_0.tar.gz https://boostorg.jfrog.io/artifactory/main/release/1.83.0/source/boost_1_83_0.tar.gz
+          tar -xzf boost_1_83_0.tar.gz
+          cd boost_1_83_0
+          ./bootstrap.sh --with-libraries=system,filesystem,thread,chrono,atomic
+          sudo ./b2 -j$(sysctl -n hw.ncpu) link=static cxxflags="-std=c++11" \
+            --prefix=/usr/local/boost183 install > /dev/null
+
+      - name: Build Berkeley DB 4.8
+        run: |
+          # Same as the Linux job: build BDB 4.8 from source with ALL the fixes the
+          # project's `depends` system applies (see the Linux job for details).
+          # Homebrew's berkeley-db@4 formula is deprecated / no longer reliable.
+          BDB_SHA256="12edc0df75bf9abd7f82f821795bcee50f42cb2e5f76a6a281b85732798364ef"
+          curl -fL -o db-4.8.30.NC.tar.gz http://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz \
+            || curl -fL -o db-4.8.30.NC.tar.gz https://bitcoincore.org/depends-sources/db-4.8.30.NC.tar.gz
+          echo "${BDB_SHA256}  db-4.8.30.NC.tar.gz" | shasum -a 256 -c -
+          tar -xzf db-4.8.30.NC.tar.gz
+          cd db-4.8.30.NC
+          sed -i.old 's/__atomic_compare_exchange/__atomic_compare_exchange_db/' dbinc/atomic.h
+          sed -i.old 's/atomic_init/atomic_init_db/' dbinc/atomic.h mp/mp_region.c mp/mp_mvcc.c mp/mp_fget.c mutex/mut_method.c mutex/mut_tas.c
+          cp -f ../depends/config.guess ../depends/config.sub dist/
+          cd build_unix
+          # --with-mutex=POSIX/pthreads: modern Xcode clang treats old-C implicit
+          #   function declarations as hard errors, so ALL of BDB's assembly-mutex
+          #   configure probes fail. Forcing pthread mutexes skips those probes and
+          #   avoids 32-bit ARM assembly that would not build on Apple Silicon.
+          # CFLAGS -std=gnu89 applies the C standard of this 2010-era C code so
+          #   pre-C99 constructs stay warnings instead of errors under modern clang.
+          # CXXFLAGS is set EXPLICITLY because BDB's build otherwise reuses CFLAGS
+          #   for its C++ wrapper files, and -std=gnu89 is invalid for C++.
+          ../dist/configure --enable-cxx --disable-shared --with-pic \
+            --with-mutex=POSIX/pthreads \
+            CFLAGS="-std=gnu89 -Wno-implicit-function-declaration" \
+            CXXFLAGS="-O2" \
+            --prefix=/usr/local/bdb4.8
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+
+      - name: Build macOS (daemon, CLI and GUI)
+        run: |
+          # qt@5 and protobuf@21 are keg-only: expose them explicitly.
+          # ALSO: clang on Apple Silicon does NOT search /opt/homebrew/include or
+          # /opt/homebrew/lib by default, so every brew package (zmq, libevent,
+          # openssl, qrencode, ...) must be added to the paths explicitly --
+          # otherwise compilation fails with e.g. "zmq.h file not found" even
+          # though configure's pkg-config checks passed.
+          BREW_PREFIX="$(brew --prefix)"
+          QT5_PREFIX="$(brew --prefix qt@5)"
+          PB21_PREFIX="$(brew --prefix protobuf@21)"
+          export PATH="${QT5_PREFIX}/bin:${PB21_PREFIX}/bin:$PATH"
+          export PKG_CONFIG_PATH="${QT5_PREFIX}/lib/pkgconfig:${PB21_PREFIX}/lib/pkgconfig:$PKG_CONFIG_PATH"
+          ./autogen.sh
+          ./configure \
+            LDFLAGS="-L/usr/local/bdb4.8/lib -L${PB21_PREFIX}/lib -L${BREW_PREFIX}/lib" \
+            CPPFLAGS="-I/usr/local/bdb4.8/include -I${PB21_PREFIX}/include -I${BREW_PREFIX}/include" \
+            --with-boost=/usr/local/boost183 \
+            --disable-tests --disable-bench --without-miniupnpc
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Package macOS binaries (tar.gz + DMG with bundled Qt)
+        run: |
+          ARCH=$(uname -m)
+          OUT="krypton-${{ inputs.version }}-${ARCH}-apple-darwin"
+          echo "OUT=$OUT" >> $GITHUB_ENV
+          mkdir -p "$OUT"
+          cp src/kryptond src/krypton-cli src/krypton-tx "$OUT"/
+          cp src/qt/krypton-qt "$OUT"/
+          cp README.md COPYING "$OUT"/
+          tar -czf "${OUT}.tar.gz" "$OUT"
+
+          # Build a double-clickable .app + .dmg. macdeployqt copies the Qt
+          # frameworks INTO the app bundle so end users need nothing installed.
+          QT5_PREFIX="$(brew --prefix qt@5)"
+          APP="Krypton-Qt.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp src/qt/krypton-qt "$APP/Contents/MacOS/Krypton-Qt"
+          cat > "$APP/Contents/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key><string>Krypton-Qt</string>
+            <key>CFBundleIdentifier</key><string>org.krypton.KryptonQt</string>
+            <key>CFBundleName</key><string>Krypton-Qt</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${{ inputs.version }}</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          "${QT5_PREFIX}/bin/macdeployqt" "$APP" -dmg
+          mv "Krypton-Qt.dmg" "krypton-${{ inputs.version }}-${ARCH}-apple-darwin-setup.dmg"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-binaries
+          path: |
+            ${{ env.OUT }}.tar.gz
+            krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg
+
   create-release:
-    needs: [build-windows, build-linux, build-macos]
+    needs: [build-windows, build-linux, build-macos, build-macos-intel]
     runs-on: ubuntu-latest
     if: ${{ inputs.create_release }}
     steps:
@@ -337,9 +475,10 @@ jobs:
             - `krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz` — GUI wallet (`krypton-qt`), node daemon and CLI tools
               (GUI requires Qt 5 runtime: `sudo apt install libqt5widgets5 libqt5network5 libqt5dbus5`)
 
-            **macOS (Apple Silicon):**
-            - `krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg` — double-clickable app with Qt bundled
-            - `krypton-${{ inputs.version }}-*-apple-darwin.tar.gz` — command-line binaries
+            **macOS (Apple Silicon & Intel):**
+            - `krypton-${{ inputs.version }}-arm64-apple-darwin-setup.dmg` — Apple Silicon (M1/M2/M3/M4) app, Qt bundled
+            - `krypton-${{ inputs.version }}-x86_64-apple-darwin-setup.dmg` — Intel Mac app, Qt bundled
+            - `krypton-${{ inputs.version }}-*-apple-darwin.tar.gz` — command-line binaries (both architectures)
 
             ### 🚀 Installation
 
