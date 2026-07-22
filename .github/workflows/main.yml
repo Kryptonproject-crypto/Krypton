@@ -36,7 +36,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libtool autotools-dev automake \
-            pkg-config bsdmainutils curl git ca-certificates python3 \
+            pkg-config bsdmainutils curl git ca-certificates python3 nsis \
             g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
           # Ubuntu's mingw-w64 defaults to the win32 threading model, which lacks
           # std::thread support that this codebase needs. Switch to posix threads.
@@ -59,6 +59,15 @@ jobs:
             --disable-tests --disable-bench --prefix=/
           make -j$(nproc)
 
+      - name: Build Windows installer (NSIS setup wizard)
+        run: |
+          # `make deploy` is the codebase's own installer target: it strips the five
+          # binaries into release/ and runs makensis on share/setup.nsi, producing a
+          # standard install wizard (install dir choice, Start Menu shortcuts,
+          # registered uninstaller) at the repo root.
+          make deploy
+          ls -la krypton-*-setup.exe
+
       - name: Package Windows binaries
         run: |
           OUT="krypton-${{ inputs.version }}-win64"
@@ -67,12 +76,17 @@ jobs:
           cp src/qt/krypton-qt.exe "$OUT"/
           cp README.md COPYING "$OUT"/
           zip -r "${OUT}.zip" "$OUT"
+          # Normalize the installer name to include the requested release version
+          # (configure derives its own version; keep the artifact name consistent).
+          mv krypton-*-setup.exe "krypton-${{ inputs.version }}-win64-setup.exe"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-binaries
-          path: krypton-${{ inputs.version }}-win64.zip
+          path: |
+            krypton-${{ inputs.version }}-win64.zip
+            krypton-${{ inputs.version }}-win64-setup.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -295,28 +309,54 @@ jobs:
           body: |
             ## Krypton v${{ inputs.version }}
 
-            ### Downloads
+            ### 🔧 What's new in this release
+
+            **Consensus & security (mainnet changes activate at block 527040 — hard fork, all nodes and pools must upgrade before that height):**
+            - **Faster difficulty adjustment**: the LWMA retarget window narrows from 120 to 60 blocks (~1h instead of ~2h) at block 527040, so difficulty tracks hashrate swings twice as fast.
+            - **Deep-reorg (51%) protection**: nodes now reject any competing chain that would reorganize more than 200 blocks (~3h20) below their tip. Enforced at header level — attacking chains are refused before download, cannot stall the node, and peers on a legitimate old fork are not banned. Tunable/disable-able per node with `-maxreorgdepth=<n>`. Inactive during initial sync.
+            - **Consensus hardening**: block subsidy is now computed with an exact integer constant instead of floating point (same value, guaranteed bit-identical on every platform/compiler).
+
+            **Network:**
+            - **P2P timings tuned for 60-second blocks**: stale-tip detection, extra-peer eviction and chain-sync timeout now scale from the real block interval instead of Bitcoin's inherited 10-minute assumptions — the network reacts ~10x faster to lagging or stalling peers.
+
+            **Wallet & GUI:**
+            - Full graphical wallet (`krypton-qt`) ships on all three platforms, including a Windows setup wizard and a macOS DMG with Qt bundled.
+            - Wallet, transaction and fee logic fully reviewed: relay fee, dust threshold, default wallet fees, `-maxtxfee` safety cap and the fee estimator are all confirmed sound for Krypton's 60s chain.
+
+            **Build & compatibility:**
+            - Codebase now builds cleanly with modern toolchains (GCC 13, current Xcode/clang, current mingw-w64) and on Apple Silicon.
+            - Reproducible cross-platform release pipeline (this release was built entirely by CI from source).
+
+            ### 📦 Downloads
 
             **Windows:**
-            - `krypton-${{ inputs.version }}-win64.zip` — GUI wallet (`krypton-qt.exe`, single self-contained file), node daemon and CLI tools
+            - `krypton-${{ inputs.version }}-win64-setup.exe` — **installer wizard** (recommended): choose install folder, Start Menu shortcuts, uninstaller
+            - `krypton-${{ inputs.version }}-win64.zip` — portable version, no installation needed
 
             **Linux:**
             - `krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz` — GUI wallet (`krypton-qt`), node daemon and CLI tools
               (GUI requires Qt 5 runtime: `sudo apt install libqt5widgets5 libqt5network5 libqt5dbus5`)
 
-            **macOS:**
+            **macOS (Apple Silicon):**
             - `krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg` — double-clickable app with Qt bundled
             - `krypton-${{ inputs.version }}-*-apple-darwin.tar.gz` — command-line binaries
 
-            ### Installation
+            ### 🚀 Installation
 
-            **Windows:** extract the ZIP and run `krypton-qt.exe`
+            **Windows:** run the setup.exe and follow the wizard, or extract the ZIP and run `krypton-qt.exe`
             **Linux:** extract and run `./krypton-qt`
             **macOS:** mount the DMG and drag Krypton-Qt to Applications
 
             Advanced users can run the headless node with `kryptond -daemon` and manage
             the wallet with `krypton-cli` (`getnewaddress`, `sendtoaddress`, `getbalance`, ...).
+
+            ### ⚠️ Upgrade notice
+
+            The new difficulty algorithm activates at **block 527040**. This is a hard fork:
+            every node and mining pool must run v${{ inputs.version }} (or later) before that
+            height, or it will be left on a dead chain.
           files: |
+            krypton-${{ inputs.version }}-win64-setup.exe
             krypton-${{ inputs.version }}-win64.zip
             krypton-${{ inputs.version }}-x86_64-linux-gnu.tar.gz
             krypton-${{ inputs.version }}-*-apple-darwin-setup.dmg
