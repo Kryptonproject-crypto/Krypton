@@ -212,13 +212,20 @@ jobs:
       - name: Build macOS (daemon, CLI and GUI)
         run: |
           # qt@5 and protobuf@21 are keg-only: expose them explicitly.
+          # ALSO: clang on Apple Silicon does NOT search /opt/homebrew/include or
+          # /opt/homebrew/lib by default, so every brew package (zmq, libevent,
+          # openssl, qrencode, ...) must be added to the paths explicitly --
+          # otherwise compilation fails with e.g. "zmq.h file not found" even
+          # though configure's pkg-config checks passed.
+          BREW_PREFIX="$(brew --prefix)"
           QT5_PREFIX="$(brew --prefix qt@5)"
           PB21_PREFIX="$(brew --prefix protobuf@21)"
           export PATH="${QT5_PREFIX}/bin:${PB21_PREFIX}/bin:$PATH"
           export PKG_CONFIG_PATH="${QT5_PREFIX}/lib/pkgconfig:${PB21_PREFIX}/lib/pkgconfig:$PKG_CONFIG_PATH"
           ./autogen.sh
-          ./configure LDFLAGS="-L/usr/local/bdb4.8/lib -L${PB21_PREFIX}/lib" \
-            CPPFLAGS="-I/usr/local/bdb4.8/include -I${PB21_PREFIX}/include" \
+          ./configure \
+            LDFLAGS="-L/usr/local/bdb4.8/lib -L${PB21_PREFIX}/lib -L${BREW_PREFIX}/lib" \
+            CPPFLAGS="-I/usr/local/bdb4.8/include -I${PB21_PREFIX}/include -I${BREW_PREFIX}/include" \
             --with-boost=/usr/local/boost183 \
             --disable-tests --disable-bench --without-miniupnpc
           make -j$(sysctl -n hw.ncpu)

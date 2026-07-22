@@ -107,7 +107,7 @@ $(package)_config_opts_i686_linux  = -xplatform linux-g++-32
 $(package)_config_opts_x86_64_linux = -xplatform linux-g++-64
 $(package)_config_opts_aarch64_linux = -xplatform linux-aarch64-gnu-g++
 $(package)_config_opts_riscv64_linux = -platform linux-g++ -xplatform bitcoin-linux-g++
-$(package)_config_opts_mingw32  = -no-opengl -xplatform win32-g++ -device-option CROSS_COMPILE="$(host)-"
+$(package)_config_opts_mingw32  = -no-opengl -no-direct2d -xplatform win32-g++ -device-option CROSS_COMPILE="$(host)-"
 $(package)_build_env  = QT_RCC_TEST=1
 $(package)_build_env += QT_RCC_SOURCE_DATE_OVERRIDE=1
 endef
@@ -134,6 +134,7 @@ endef
 
 define $(package)_preprocess_cmds
   sed -i.old 's|#include <QtCore/qbytearray.h>|#include <QtCore/qbytearray.h>\n#include <limits>|' qtbase/src/corelib/tools/qbytearraymatcher.h && \
+  sed -i.old 's@#if defined(Q_CC_MINGW) || !defined(TOUCHEVENTF_MOVE)@#if !defined(TOUCHEVENTF_MOVE)@' qtbase/src/plugins/platforms/windows/qwindowsmousehandler.cpp && \
   sed -i.old "s|FT_Get_Font_Format|FT_Get_X11_Font_Format|" qtbase/src/platformsupport/fontdatabases/freetype/qfontengine_ft.cpp && \
   sed -i.old "s|updateqm.commands = \$$$$\$$$$LRELEASE|updateqm.commands = $($(package)_extract_dir)/qttools/bin/lrelease|" qttranslations/translations/translations.pro && \
   sed -i.old "/updateqm.depends =/d" qttranslations/translations/translations.pro && \
