@@ -43,7 +43,10 @@
 #include <cpuid.h>
 #endif
 #endif
-#ifndef __FreeBSD__
+// Same rationale as in scrypt.h: BSD-family systems (FreeBSD, and macOS since
+// the Xcode 26 SDK) already provide these in <sys/endian.h>, which scrypt.h has
+// pulled in on those systems; only define our fallbacks everywhere else.
+#if !defined(__FreeBSD__) && !defined(KRYPTON_HAVE_SYS_ENDIAN)
 static inline uint32_t be32dec(const void *pp)
 {
 	const uint8_t *p = (uint8_t const *)pp;

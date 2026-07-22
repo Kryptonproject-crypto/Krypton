@@ -29,7 +29,18 @@ void
 PBKDF2_SHA256(const uint8_t *passwd, size_t passwdlen, const uint8_t *salt,
     size_t saltlen, uint64_t c, uint8_t *buf, size_t dkLen);
 
-#ifndef __FreeBSD__
+// BSD-family systems ship these byte-order helpers in <sys/endian.h> -- FreeBSD
+// always has, and macOS does since the Xcode 26 SDK. Defining our own alongside
+// theirs is a compile-error redefinition, so prefer the system header whenever it
+// exists and keep the portable fallbacks for everyone else (glibc Linux, mingw).
+#if defined(__has_include)
+# if __has_include(<sys/endian.h>)
+#  define KRYPTON_HAVE_SYS_ENDIAN 1
+# endif
+#endif
+#if defined(__FreeBSD__) || defined(KRYPTON_HAVE_SYS_ENDIAN)
+#include <sys/endian.h>
+#else
 static inline uint32_t le32dec(const void *pp)
 {
         const uint8_t *p = (uint8_t const *)pp;
