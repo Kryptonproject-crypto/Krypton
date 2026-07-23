@@ -119,7 +119,8 @@ public:
         assert(genesis.hashMerkleRoot == uint256S("0x708665c56d1074161af8b7ec6144d7f99f1671afe09a1abdaed5f27892c1f44c"));
 
 
-vSeeds.emplace_back("seed.krypton-explorer.org");        vSeeds.emplace_back("158.58.129.111");
+vSeeds.emplace_back("seed.krypton-explorer.org");        
+vSeeds.emplace_back("158.58.129.111");
 vSeeds.emplace_back("185.131.54.234");
 vSeeds.emplace_back("192.3.211.73");
 vSeeds.emplace_back("192.3.228.236");
