@@ -447,23 +447,39 @@ jobs:
           body: |
             ## Krypton v${{ inputs.version }}
 
-            ### 🔧 What's new in this release
+            ### 🌱 New in 1.6.1 — DNS seed
 
-            **Consensus & security (mainnet changes activate at block 527040 — hard fork, all nodes and pools must upgrade before that height):**
+            Until now, a new node could only find the network through **six hardcoded IP
+            addresses**. If those hosts went offline, nobody could join the chain at all.
+
+            This release adds a **DNS seed**: `seed.krypton-explorer.org`. A crawler
+            continuously scans the network, checks which nodes are actually reachable and in
+            sync, and serves their addresses over DNS. Bootstrapping no longer depends on a
+            fixed list that ages badly.
+
+            The six original addresses are kept as a fallback, so there are now two
+            independent ways to reach the network.
+
+            *Upgrading is recommended for every node operator: older versions do not know
+            about the DNS seed and still rely solely on the hardcoded list.*
+
+            ### 🔧 Also included since 1.6
+
+            **Consensus & security:**
             - **Faster difficulty adjustment**: the LWMA retarget window narrows from 120 to 60 blocks (~1h instead of ~2h) at block 527040, so difficulty tracks hashrate swings twice as fast.
-            - **Deep-reorg (51%) protection**: nodes now reject any competing chain that would reorganize more than 200 blocks (~3h20) below their tip. Enforced at header level — attacking chains are refused before download, cannot stall the node, and peers on a legitimate old fork are not banned. Tunable/disable-able per node with `-maxreorgdepth=<n>`. Inactive during initial sync.
-            - **Consensus hardening**: block subsidy is now computed with an exact integer constant instead of floating point (same value, guaranteed bit-identical on every platform/compiler).
+            - **Deep-reorg (51%) protection**: nodes reject any competing chain that would reorganize more than 200 blocks (~3h20) below their tip. Enforced at header level — attacking chains are refused before download, cannot stall the node, and peers on a legitimate old fork are not banned. Tunable per node with `-maxreorgdepth=<n>`. Inactive during initial sync.
+            - **Consensus hardening**: block subsidy is computed with an exact integer constant instead of floating point (same value, guaranteed bit-identical on every platform/compiler).
 
             **Network:**
-            - **P2P timings tuned for 60-second blocks**: stale-tip detection, extra-peer eviction and chain-sync timeout now scale from the real block interval instead of Bitcoin's inherited 10-minute assumptions — the network reacts ~10x faster to lagging or stalling peers.
+            - **P2P timings tuned for 60-second blocks**: stale-tip detection, extra-peer eviction and chain-sync timeout scale from the real block interval instead of Bitcoin's inherited 10-minute assumptions — the network reacts ~10x faster to lagging or stalling peers.
 
             **Wallet & GUI:**
-            - Full graphical wallet (`krypton-qt`) ships on all three platforms, including a Windows setup wizard and a macOS DMG with Qt bundled.
+            - Full graphical wallet (`krypton-qt`) on every platform, including a Windows setup wizard and macOS DMGs with Qt bundled.
             - Wallet, transaction and fee logic fully reviewed: relay fee, dust threshold, default wallet fees, `-maxtxfee` safety cap and the fee estimator are all confirmed sound for Krypton's 60s chain.
 
             **Build & compatibility:**
-            - Codebase now builds cleanly with modern toolchains (GCC 13, current Xcode/clang, current mingw-w64) and on Apple Silicon.
-            - Reproducible cross-platform release pipeline (this release was built entirely by CI from source).
+            - Builds cleanly with modern toolchains (GCC 13, current Xcode/clang, current mingw-w64) and on Apple Silicon.
+            - Reproducible cross-platform release pipeline — this release was built entirely by CI from source.
 
             ### 📦 Downloads
 
@@ -486,14 +502,26 @@ jobs:
             **Linux:** extract and run `./krypton-qt`
             **macOS:** mount the DMG and drag Krypton-Qt to Applications
 
-            Advanced users can run the headless node with `kryptond -daemon` and manage
-            the wallet with `krypton-cli` (`getnewaddress`, `sendtoaddress`, `getbalance`, ...).
+            Advanced users can run the headless node with `kryptond -daemon` and manage the
+            wallet with `krypton-cli` (`getnewaddress`, `sendtoaddress`, `getbalance`, ...).
 
-            ### ⚠️ Upgrade notice
+            ### 🖧 Running a node
+
+            Running a reachable node genuinely helps the chain. Open **TCP port 8369** so other
+            nodes can connect to you — behind a home router that means port forwarding, and on
+            a VPS check the provider's own firewall as well as the one on the machine. A node
+            that only makes outbound connections still validates blocks, but it does not help
+            propagate them.
+
+            ### ⚠️ Upgrade notice — hard fork at block 527040
 
             The new difficulty algorithm activates at **block 527040**. This is a hard fork:
-            every node and mining pool must run v${{ inputs.version }} (or later) before that
-            height, or it will be left on a dead chain.
+            every node and mining pool must run 1.6.0 or later before that height, or it will
+            be left behind on a divergent chain.
+
+            Check the current height with `krypton-cli getblockchaininfo` or on the
+            [block explorer](https://explorer.krypton-explorer.org).
+
           files: |
             krypton-${{ inputs.version }}-win64-setup.exe
             krypton-${{ inputs.version }}-win64.zip
