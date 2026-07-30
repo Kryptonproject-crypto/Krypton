@@ -3275,7 +3275,11 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
  */
 static bool ContextualCheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
-    const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
+    // Krypton : genesis sans parent -> retour anticipe avant VersionBitsState(pindexPrev),
+    // qui sinon declenche assert(pindexPrev != nullptr) lors d'un -reindex complet.
+    if (pindexPrev == nullptr)
+        return true;
+    const int nHeight = pindexPrev->nHeight + 1;
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
     int nLockTimeFlags = 0;
