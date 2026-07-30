@@ -447,21 +447,9 @@ jobs:
           body: |
             ## Krypton v${{ inputs.version }}
 
-            ### 🌱 New in 1.6.1 — DNS seed
+            ### 🌱 New in 1.6.2
 
-            Until now, a new node could only find the network through **six hardcoded IP
-            addresses**. If those hosts went offline, nobody could join the chain at all.
-
-            This release adds a **DNS seed**: `seed.krypton-explorer.org`. A crawler
-            continuously scans the network, checks which nodes are actually reachable and in
-            sync, and serves their addresses over DNS. Bootstrapping no longer depends on a
-            fixed list that ages badly.
-
-            The six original addresses are kept as a fallback, so there are now two
-            independent ways to reach the network.
-
-            *Upgrading is recommended for every node operator: older versions do not know
-            about the DNS seed and still rely solely on the hardcoded list.*
+           Fix reindex crash: guard genesis in ContextualCheckBlock
 
             ### 🔧 Also included since 1.6
 
