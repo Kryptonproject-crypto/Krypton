@@ -449,7 +449,7 @@ jobs:
 
             ### 🌱 New in 1.6.2
 
-           Fix reindex crash: guard genesis in ContextualCheckBlock
+            Fix reindex crash: guard genesis in ContextualCheckBlock
 
             ### 🔧 Also included since 1.6
 
